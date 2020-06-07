@@ -1,0 +1,10 @@
+2020-06-07T19:15:43.668Z linux node v13.11.0
+substr_valid   :	29ms (100000 iterations, returns true)
+substr_invalid :	16ms (100000 iterations, returns false)
+substr_long    :	29ms (100000 iterations, returns true)
+substr2_valid   :	30ms (100000 iterations, returns true)
+substr2_invalid :	33ms (100000 iterations, returns false)
+substr2_long    :	26ms (100000 iterations, returns true)
+regex1_valid   :	21ms (100000 iterations, returns true)
+regex1_invalid :	40ms (100000 iterations, returns false)
+regex1_long    :	45ms (100000 iterations, returns false)

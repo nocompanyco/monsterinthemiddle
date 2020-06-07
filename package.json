@@ -1,0 +1,25 @@
+{
+  "name": "MonsterInTheMiddle",
+  "version": "0.1.0",
+  "description": "",
+  "author": "Nathan Fain <nathan@nocompany.co>",
+  "homepage": "https://github.com/nocompanyco/monsterinthemiddle",
+  "os": [
+    "darwin",
+    "linux",
+    "win"
+  ],
+  "bin": "./index.js",
+  "main": "electron.js",
+  "dependencies": {
+    "cap": "^0.2.1",
+    "default-network": "^0.2.0",
+    "express": "4.17.1",
+    "geolite2-redist": "^1.0.7",
+    "maxmind": "4.1.2",
+    "pcap": "^3.1.0",
+    "socket.io": "2.3.0",
+    "tldjs": "1.5.2"
+  },
+  "private": true
+}
