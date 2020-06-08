@@ -110,9 +110,9 @@ const gatewayip    = process.argv[4];
 const pcap = require("pcap");
 var pcap_session, cap_session, cap_linktype;
 try {
-    // if (isWin) {
+    if (isWin) {
     // to debug windows codepath on linux:
-    if (1 || isWin) {
+    // if (1 || isWin) {
 
         const cap = require('cap');
         var cap_session = new cap.Cap();
@@ -689,9 +689,11 @@ function process_send_raw_packet(raw_packet) {
         debugger; // use --inspect and open chrome
     });
 }
-// if (isWin) {
+
+
+if (isWin) {
 // for testing this codepath but on linux, can :
-if (1 || isWin) {
+// if (1 || isWin) {
 
     cap_session.on('packet', function(nbytes, trunc) {
         // var raw_packet = buffer.slice(0, nbytes);

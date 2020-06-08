@@ -9,8 +9,13 @@
     "linux",
     "win"
   ],
-  "bin": "./index.js",
-  "main": "electron.js",
+  "main": "index.js",
+  "scripts": {
+    "start_electron": "electron electron.js",
+    "start_node": "node index.js",
+    "rebuild_electron": "electron-rebuild -f -w .",
+    "rebuild_node": "npm rebuild ."  
+  },
   "dependencies": {
     "cap": "^0.2.1",
     "default-network": "^0.2.0",
@@ -20,6 +25,11 @@
     "pcap": "^3.1.0",
     "socket.io": "2.3.0",
     "tldjs": "1.5.2"
+  },
+  "devDependencies": {
+    "electron": "^9.0.0",
+    "electron-builder": "^22.7.0",
+    "electron-rebuild": "^1.11.0"
   },
   "private": true
 }

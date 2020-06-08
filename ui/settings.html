@@ -1,1 +1,154 @@
-settings html
+<html>
+<head>
+<script>
+
+const isWin   = (process.platform === 'win32')
+const isLinux = (process.platform === 'linux')
+const isOSX   = (process.platform === 'darwin')
+
+//http://youmightnotneedjquery.com/#ready
+function ready(fn) {
+  if (document.readyState != 'loading'){
+    fn();
+  } else if (document.addEventListener) {
+    document.addEventListener('DOMContentLoaded', fn);
+  } else {
+    document.attachEvent('onreadystatechange', function() {
+      if (document.readyState != 'loading')
+        fn();
+    });
+  }
+}
+
+const ipc      = require("electron").ipcRenderer;
+const os       = require('os');
+const route    = require('default-network');
+const fs       = require('fs');
+
+
+const userhome     = process.env[isWin ? 'USERPROFILE' : 'HOME'];
+const settingsfile = userhome + '/monsterinthemiddle_config.json';
+var settings  = fs.existsSync(settingsfile) ? require(settingsfile) : {};
+function settings_save(){ fs.writeFileSync(settingsfile, JSON.stringify(settings,null,4)) }
+
+
+var interfaces, defaultInterface;
+
+var saveBtn, interfacesSelect;  
+
+
+ready(function() {
+
+    var eth     = document.querySelector('input[name="eth"]');
+    var filter  = document.querySelector('input[name="filter"]');
+    var gateway = document.querySelector('input[name="gateway"]');
+
+    eth.value     = 'eth'     in settings ? settings.eth     : '';
+    filter.value  = 'filter'  in settings ? settings.filter  : 'tcp or udp';
+    gateway.value = 'gateway' in settings ? settings.gateway : '';
+
+    saveBtn = document.querySelector('#save');
+    saveBtn.addEventListener('click', function () {
+        console.log("saving settings");
+        settings.eth = eth.value;
+        settings.filter = filter.value;
+        settings.gateway = gateway.value;
+        try {
+            settings_save();    
+        } catch (e) {
+            // this can happen when proc run first with normal user
+        }
+        
+        ipc.send('settings-change', settings);
+        document.body.innerHTML = "<h1>loading</h1>";
+    });
+
+    interfacesSelect = document.querySelector('#interface');
+
+    route.collect(function(err, routes) {
+        interfaces       = [];
+        osEths           = os.networkInterfaces();
+        defaultInterface = Object.keys(routes)[0];
+
+        for (k in osEths) {
+            // TODO: assuming IPv4 always first
+            interfaces.push({
+                name:    k,
+                ip:      osEths[k][0]['address'],
+                default: k === defaultInterface ? true : false,
+                gateway: k in routes            ? routes[k][0]['address'] : null
+            });
+            var e = document.createElement('option');
+            e.value = k;
+            e.innerHTML = k+' ('+osEths[k][0]['address']+')';
+            if (k === defaultInterface) {
+                e.checked = true;
+                e.selected = true;
+            }
+            interfacesSelect.appendChild(e);
+        }
+    });
+
+    interfacesSelect.addEventListener('change', function (e) {
+        console.log("change");
+        var selectedEth = interfacesSelect.options[interfacesSelect.selectedIndex].value;
+        for (i in interfaces) {
+            if (interfaces[i].name === selectedEth) {
+                document.querySelector('input[name="eth"]').value = interfaces[i].name;
+                document.querySelector('input[name="gateway"]').value = interfaces[i].gateway;
+            }
+        }
+    });
+
+    if (isLinux) {
+        document.querySelector('#command').innerHTML = "sudo ./monsterinthemiddle-linux-x64/monsterinthemiddle --no-sandbox";
+    }
+    else if (isOSX) {
+        document.querySelector('#command').innerHTML = "sudo ./monsterinthemiddle-darwin-x64/snifferjs.app/Contents/MacOS/Electron --no-sandbox";
+    }
+    else if (isWin) {
+        document.querySelector('#troubleshooting').innerHTML = "On windows installing <a href='https://www.wireshark.org/download.html'>Wireshark</a> or <a href='https://nmap.org/npcap/'>NPCap</a> should give all users permissions to monitor the network interface. If you experiance issues perhaps confirm that Wireshark works first.";
+
+    }
+});
+</script>
+<style>
+* {  font-family: sans-serif;}
+body { font-size: 10.5pt; margin: 4% 10% 10% 10% ; background-color: #dee3de;}
+td {font-size: 10.5pt; }
+button { font-size: 1em; padding:0.5em 1em; }
+.help, .help a {color: #777;}
+#command { margin: 10px; font-family: monospace;}   
+td:nth-child(1) { 
+    font-size: 1.5em;
+    color:rgb(236, 80, 80);
+    padding-right:0.5em;
+    }
+td:nth-child(2) { text-align:right}
+</style>
+</head>
+<body>
+<h2>Configure Monster in the Middle</h1>
+<table>
+    <tr><td>1</td><td>Interface</td><td class=help>(name of interface)</td></tr>
+    <tr><td></td><td>select:  </td><td>
+                     <select id="interface">
+                     <option value="" disabled="disable" >Select network interface</option>
+                     </select></td></tr>
+    <tr><td></td><td>or&nbsp;define:</td><td>
+                     <input name="eth" value="" /></td></tr>    
+    <tr><td></td><td></td><td class=help>Interface name to monitor<br>(e.g. eth0, en0, wlan0)<br /><br /></td></tr>
+    <tr><td>2</td><td>Filter</td><td> <input name="filter" value="" /></td></tr>
+    <tr><td></td><td></td><td class=help>libpcap filter<br />(e.g.  "ip and not host 192.168.1.1")<br /><br /></td></tr>
+    <tr><td>3</td><td>Gateway</td><td> <input name="gateway" value="" /></td></tr>
+    <tr><td></td><td></td><td class=help>Default router of interface.<br /><br /></td></tr>
+    <tr><td>4</td><td></td><td><button id="save">Start Capture</button>
+</td></tr>
+</table><br />
+<br>
+<div id=troubleshooting class=help>
+    If your user does not have permission to monitor the network interface then you might need to run as root:<br>
+    <div id=command></div>
+    For details on setting up network permissions see <a href="https://github.com/cyphunk/snifferjs/wiki/User-Permissions">User Permissions</a> wiki
+</div></body>
+</html>

@@ -1,6 +1,6 @@
 // This is a copy, perhaps slightly modified, of node-ieee-oui-lookup which
 // is no longer maintained. Mainly I needed to control the sqlite3 dependency
-// more directly when using sniffer.js within node-webkit.
+// more directly when using within node-webkit.
 
 // Currently just reading in file. For Sqlite revert version of this file in:
 // https://github.com/cyphunk/snifferjs/commit/cae731e0ea2a578f7437dd475b68fe1e5533bc63
