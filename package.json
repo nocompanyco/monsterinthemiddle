@@ -9,7 +9,7 @@
     "linux",
     "win"
   ],
-  "main": "packets.js",
+  "main": "electron.js",
   "scripts": {
     "start_electron": "electron electron.js",
     "start_node": "node packets.js",
@@ -18,9 +18,9 @@
     "pack": "electron-builder --dir",
     "dist:all": "dist:windows dist:mac dist:linux",
     "dist:mac": "electron-builder --mac",
-,   "dist:windows": "electron-builder --win --x64 --i32",
-    "dist:linux": "electron-builder --linux"
-,   "dist:linuxwindows": "WINEPREFIX=~/.win32 WINEARCH=win32 electron-builder --win --x64 --i32"
+    "dist:windows": "electron-builder --win --x64 --ia32",
+    "dist:linux": "electron-builder --linux",
+    "dist:linuxwindows": "WINEPREFIX=~/.win32 WINEARCH=win32 electron-builder --win --x64 --ia32"
   },
   "build": {
     "appId": "org.counterpart.monsterinthemiddle",
