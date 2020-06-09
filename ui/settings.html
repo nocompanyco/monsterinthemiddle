@@ -24,7 +24,7 @@ const ipc      = require("electron").ipcRenderer;
 const os       = require('os');
 const route    = require('default-network');
 const fs       = require('fs');
-
+// const {dialog} = require('electron').remote;
 
 const userhome     = process.env[isWin ? 'USERPROFILE' : 'HOME'];
 const settingsfile = userhome + '/monsterinthemiddle_config.json';
@@ -42,13 +42,14 @@ ready(function() {
     var eth     = document.querySelector('input[name="eth"]');
     var filter  = document.querySelector('input[name="filter"]');
     var gateway = document.querySelector('input[name="gateway"]');
+    var capture_file = null;
 
     eth.value     = 'eth'     in settings ? settings.eth     : '';
     filter.value  = 'filter'  in settings ? settings.filter  : 'tcp or udp';
     gateway.value = 'gateway' in settings ? settings.gateway : '';
 
-    saveBtn = document.querySelector('#save');
-    saveBtn.addEventListener('click', function () {
+    start_live_btn = document.querySelector('#start_live_btn');
+    start_live_btn.addEventListener('click', function () {
         console.log("saving settings");
         settings.eth = eth.value;
         settings.filter = filter.value;
@@ -59,9 +60,47 @@ ready(function() {
             // this can happen when proc run first with normal user
         }
         
-        ipc.send('settings-change', settings);
-        document.body.innerHTML = "<h1>loading</h1>";
+        ipc.send('start-live-capture', settings);
+        document.getElementById('content').innerHTML = "<div style='width:100%;text-align:center;'><h1>loading</h1><img width=100 src='loading/elephant.gif'></div>";
     });
+    start_live_btn.addEventListener('click', function () {
+        ipc.send('load_file_btn');
+    });
+    // document.getElementById('select-file').addEventListener('click',function(){
+    //         dialog.showOpenDialog(function (fileNames) {
+    //             if(fileNames === undefined){
+    //                 console.log("No file selected");
+    //             }else{
+    //                 console.log("file selected");
+
+    //                 document.getElementById("actual-file").value = fileNames[0];
+    //                 // readFile(fileNames[0]);
+    //             }
+    //         }); 
+    // },false);
+    select_file_btn = document.querySelector('#select-file');
+    select_file_btn.addEventListener('change',function(e){
+        console.log('file load changed', e.target.files);
+        if ('target' in e && 'files' in e.target) {
+            Object.values(e.target.files).forEach(function(v){
+                console.log(v.name, v.path);
+                capture_file = v.path;
+            })
+        }
+    },false);
+    load_file_btn = document.querySelector('#load_file_btn');
+    load_file_btn.addEventListener('click',function(e){
+        if (capture_file) {
+            console.log("load capture file", capture_file);
+            ipc.send('start-load-capture', capture_file);
+            document.getElementById('content').innerHTML = "<div style='width:100%;text-align:center;'><h1>loading</h1><img width=100 src='loading/elephant.gif'></div>";
+        }
+        else {
+            console.log("capture file not defined", capture_file);
+        }
+    });
+
+
 
     interfacesSelect = document.querySelector('#interface');
 
@@ -110,7 +149,18 @@ ready(function() {
         document.querySelector('#troubleshooting').innerHTML = "On windows installing <a href='https://www.wireshark.org/download.html'>Wireshark</a> or <a href='https://nmap.org/npcap/'>NPCap</a> should give all users permissions to monitor the network interface. If you experiance issues perhaps confirm that Wireshark works first.";
 
     }
+
 });
+function readFile(filepath) {
+    fs.readFile(filepath, 'utf-8', function (err, data) {
+        if(err){
+            alert("An error ocurred reading the file :" + err.message);
+            return;
+        }
+        
+        document.getElementById("content-editor").value = data;
+    });
+}
 </script>
 <style>
 * {  font-family: sans-serif;}
@@ -118,37 +168,58 @@ body { font-size: 10.5pt; margin: 4% 10% 10% 10% ; background-color: #dee3de;}
 td {font-size: 10.5pt; }
 button { font-size: 1em; padding:0.5em 1em; }
 .help, .help a {color: #777;}
-#command { margin: 10px; font-family: monospace;}   
-td:nth-child(1) { 
+#command { 
+    margin: 0.8em 0; font-size: 0.9em; font-family: monospace;
+    margin-left: 2em; 
+    text-indent: -2em 
+}   
+/* td:nth-child(1) {  display:none;
     font-size: 1.5em;
     color:rgb(236, 80, 80);
     padding-right:0.5em;
-    }
-td:nth-child(2) { text-align:right}
+    } */
+td:nth-child(1) { text-align:right}
+td.header{ text-align:left; display:table-cell; font-size: 1.2em;color:#000;padding: 1em 0 ;}
+#content { display:grid; height:100%; align-items:center}
 </style>
 </head>
 <body>
-<h2>Configure Monster in the Middle</h1>
-<table>
-    <tr><td>1</td><td>Interface</td><td class=help>(name of interface)</td></tr>
-    <tr><td></td><td>select:  </td><td>
-                     <select id="interface">
-                     <option value="" disabled="disable" >Select network interface</option>
-                     </select></td></tr>
-    <tr><td></td><td>or&nbsp;define:</td><td>
-                     <input name="eth" value="" /></td></tr>    
-    <tr><td></td><td></td><td class=help>Interface name to monitor<br>(e.g. eth0, en0, wlan0)<br /><br /></td></tr>
-    <tr><td>2</td><td>Filter</td><td> <input name="filter" value="" /></td></tr>
-    <tr><td></td><td></td><td class=help>libpcap filter<br />(e.g.  "ip and not host 192.168.1.1")<br /><br /></td></tr>
-    <tr><td>3</td><td>Gateway</td><td> <input name="gateway" value="" /></td></tr>
-    <tr><td></td><td></td><td class=help>Default router of interface.<br /><br /></td></tr>
-    <tr><td>4</td><td></td><td><button id="save">Start Capture</button>
-</td></tr>
-</table><br />
-<br>
+<div id=content>
+<table><td>
+    <table style='float:left;'>
+        <tr><td class=header colspan=2>Live capture</td></tr>
+        <tr><td>Interface</td><td class=help>(name of interface)</td></tr>
+        <tr><td>select:  </td><td>
+                        <select id="interface">
+                        <option value="" disabled="disable" >Select network interface</option>
+                        </select></td></tr>
+        <tr><td>or&nbsp;define:</td><td>
+                        <input name="eth" value="" /></td></tr>    
+        <tr><td></td><td class=help>Interface name to monitor<br>(e.g. eth0, en0, wlan0)<br /><br /></td></tr>
+        <tr><td>Filter</td><td> <input name="filter" value="" /></td></tr>
+        <tr><td></td><td class=help>libpcap filter<br />(e.g.  "ip and not host 192.168.1.1")<br /><br /></td></tr>
+        <tr><td>Gateway</td><td> <input name="gateway" value="" /></td></tr>
+        <tr><td></td><td class=help>Default router of interface.<br /><br /></td></tr>
+        <tr><td></td><td><button id="start_live_btn">Start Capture</button></td></tr>
+    <!-- https://ourcodeworld.com/articles/read/106/how-to-choose-read-save-delete-or-create-a-file-with-electron-framework -->
+    </table>
+</td>
+<td style=vertical-align:top>
+    <table style=opacity:0.5>
+    <tr><td class=header colspan=2>Load saved capture<br>(not available yet)</td></tr>
+    <tr><td></td><td>
+        <input type="file" value="Choose a file" id="select-file">
+    </td></tr>
+    <tr><td></td><td><button id="load_file_btn">Load Capture</button></td></tr>
+    </table>
+</td>
+</table>
+<br clear=all><br><br>
 <div id=troubleshooting class=help>
-    If your user does not have permission to monitor the network interface then you might need to run as root:<br>
+    For live capture if your user does not have permission to monitor the network interface then you may need to run as root:<br>
     <div id=command></div>
     For details on setting up network permissions see <a href="https://github.com/cyphunk/snifferjs/wiki/User-Permissions">User Permissions</a> wiki
-</div></body>
+</div>
+</div>
+</body>
 </html>

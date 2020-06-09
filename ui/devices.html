@@ -1,0 +1,1110 @@
+<html>
+<head>
+<!-- <script src="/ui/js/jquery.min.js"></script> -->
+<script src="/socket.io/socket.io.js"></script>
+<!-- <script src="/ui/js/packery.pkgd.1.2.34.min.js"></script> -->
+<!-- <script src="/ui/js/packery.pkgd.1.2.4js"></script> -->
+<!-- <script src="/ui/js/packery.pkgd.2.1.2.js"></script> -->
+<script src="/ui/js/packery.pkgd.2.1.2.min.js"></script>
+
+<script>
+
+    var ICON_PATH = '/icons/';
+    var FAVICON_SERVICE = 'http://www.google.com/s2/favicons?domain=';//facebook.com
+    var DISABLE_GRAPH = false;
+    /*
+    To get the favicon for a domain, use:
+    https://plus.google.com/_/favicon?domain=www.stackoverflow.com
+    To get the favicon for an URL, use:
+    https://plus.google.com/_/favicon?domain_url=http://www.stackoverflow.com/
+    */
+
+    // localStorage.debug='*';
+    localStorage.debug='';
+
+    var socket = io.connect('');
+
+    var packet_count = 0;
+
+    //
+    // UTILS
+    //
+    //http://youmightnotneedjquery.com/#ready
+    function ready(fn) {
+        if (document.readyState != 'loading'){
+            fn();
+        } else if (document.addEventListener) {
+            document.addEventListener('DOMContentLoaded', fn);
+        } else {
+            document.attachEvent('onreadystatechange', function() {
+            if (document.readyState != 'loading')
+                fn();
+            });
+        }
+    }
+
+    function capitalize(s)
+    {
+        return s && s[0].toUpperCase() + s.slice(1).toLowerCase();
+    }
+    // cross browser shit
+    function xinnerText(elem, newtext) {
+        if (newtext) {
+            if ('innerText' in elem)        // most browsers do this
+                elem.innerText = newtext;
+            else if ('textContent' in elem) // "standards compliant browsers"
+                elem.textContent = newtext; //  (aka only firefox) do this
+            }
+        else {
+            if ('innerText' in elem)
+                return elem.innerText;
+            else if ('textContent' in elem)
+                return elem.textContent;
+            }
+    }
+    // cloning nodes is faster (jsperf.com)
+    var span = document.createElement('span');
+    function newspan (parent, text, spanclass, id) {
+        var newspan = span.cloneNode();
+        xinnerText(newspan, text);
+        if (spanclass)
+            newspan.className=spanclass; // hell we could probably speed things
+        if (id)
+            newspan.id = id;
+        parent.appendChild(newspan);        // up by cloning each span type.oh well
+        return newspan;
+    }
+    var div = document.createElement('div');
+    function newdiv (parent, divclass, id, text) {
+        var newdiv = div.cloneNode();
+        if (divclass)
+            newdiv.className=divclass;
+        if (id)
+            newdiv.id=id;
+        if (text)
+            xinnerText(newdiv, text);
+        parent.appendChild(newdiv);
+        return newdiv;
+    }
+    var img = document.createElement('img');
+    function newimg (parent, imgclass, src, width, height) {
+        var newimg = img.cloneNode();
+        newimg.className = imgclass;
+        newimg.src = src;
+        if (width)
+            newimg.width = width;
+        if (height)
+            newimg.height = height;
+        parent.appendChild(newimg);
+    }
+    function getChildElementByClass(parent, classname) {
+        for (var i = 0; i < parent.childNodes.length; i++) {
+            if (!parent.childNodes[i].classList) // trying to avoid a invalid reference error with this check
+                continue;
+            if (parent.childNodes[i].classList.contains(classname)) {
+                return parent.childNodes[i];
+            }
+        }
+        return null;
+    }
+    function get_favicon(domain) {
+        // return 'http://'+domain+'/favicon.ico';
+        return FAVICON_SERVICE+domain;
+    }
+
+
+
+
+
+
+
+    //
+    // CONTENT
+    //
+    // template for Tiles
+    var tile_template = document.createElement('div');
+    tile_template.className = 'tile';
+    tile_template.innerHTML = (function () {/*
+        <img class="device_icon" src="#">
+        <span class="name"></span>
+        <span class="device_type"></span>
+    */}).toString().match(/[^]*\/\*([^]*)\*\/\}$/)[1];
+
+    targets = {}
+    medias = {}
+
+    var tile_container, icons;
+    var detail, detail_header, detail_icon, detail_name, device, leaks, services_header, services, mediass, medias_header, overlay;
+    var pack, tilepack;
+    var tile_maxwidth = '650px';
+    var tile_maxheight = '140px';
+    var tile_iconsize = '80px';
+    var tile_namesize = '60px';
+
+ready(function() {
+    tile_container = document.getElementById('tiles');
+    detail_container = document.getElementById('details');
+
+    // detail box
+    detail        = document.getElementById('detail');
+    device_header = document.getElementById('device_header');
+    device_icon   = document.getElementById('device_icon');
+    device_name   = document.getElementById('name');
+    device        = document.getElementById('device');
+    leaks         = document.getElementById('leaks');
+    services_header = document.getElementById('services_header');
+    services      = document.getElementById('services');
+    mediass       = document.getElementById('medias');
+    medias_header = document.getElementById('medias_header');
+    overlay       = document.getElementById('overlay');
+
+    // THESE TWO WORK WELL
+    //See comments at top about packers
+    // pack = new Packery( mediass, {
+    //     itemSelector: '.media',
+    //     gutter: 4,
+    // });
+    // tilepack = new Packery( tile_container, {
+    //     itemSelector: '.tile',
+    //     gutter: 4,
+    // });
+
+
+    //See comments at top about packers
+    // pack = new Masonry( mediass, {
+    //   itemSelector: '.media',
+    //   gutter: 10,
+    // });
+
+
+    //  $('#medias').isotope({
+    // pack = new Isotope( mediass, {
+    //   layoutMode: 'masonryHorizontal',
+    //   masonryHorizontal: {
+    //       rowHeight: 50
+    //   }
+    // });
+
+    //
+    // SOCKETS
+    //
+    // socket.on('connect', function () {
+        // hmm, sometimes we never get here
+        console.log('connected to server flat');
+        socket.emit('init');
+    socket.on('connect', function () {
+        // hmm, sometimes we never get here
+        console.log('connected to server on connect');
+        setTimeout(function(){socket.emit('get_net_graph');}, 1000);
+    });
+
+
+    socket.on('new_target', function(data) {
+        try {
+            console.log(data);
+            update_data(data.target, data.media);
+        }catch(e){console.log(e)}
+
+    });
+    socket.on('queue', function(data) {
+        console.log('queue');
+        console.log(data);
+    });
+
+    socket.on('update', function(data) {
+        try {
+            update_data(data.target, data.media);
+            // if (!zoomed) {
+            //     var tile = document.getElementById(data.target.ip);
+            //     zoomed = true;
+            //     setTimeout(function(){
+            //         // unzoom
+            //         zoom_detail(tile);
+            //     }, 3000);
+            //     setTimeout(function(){zoomed=false}, 5000);
+            // }
+        }catch(e){console.log(e)}
+    });
+    socket.on('show_target', function(data) {
+        console.log('show_target '+data.key+' '+data.time);
+        var tile = document.getElementById(data.key);
+        try {
+            zoom_detail(tile, data.time);
+        }catch(e){console.log(e)}
+
+    });
+
+    socket.on('net_graph', function(data) {
+        console.log('net graph');
+        //update_graph(data);
+    });
+    // commands
+    socket.on('controller', function(data) {
+        console.log('server send UI command via controller');
+        console.log(data);
+    });
+
+    socket.on('reload', function() {location.reload();})
+
+    //scriptable css
+    // will need to set these really in the devices.js
+    socket.on('change_style', function(data){
+        console.log('change size'); console.log(data);
+        if (data.maxwidth)
+            tile_maxwidth = data.maxwidth;
+        if (data.maxheight)
+            tile_maxheight = data.maxheight;
+        if (data.iconsize)
+            tile_iconsize = data.iconsize;
+        if (data.namesize)
+            tile_namesize = data.namesize;
+        var tiles = document.getElementsByClassName('tile');
+        for (var i=0; i < tiles.length; i++) {
+            tiles[i].style.maxWidth = tile_maxwidth;
+            tiles[i].style.maxHeight = tile_maxheight;
+            var icon = getChildElementByClass(tiles[i], 'device_icon')
+            icon.style.height = tile_iconsize;
+            icon.style.width = tile_iconsize;
+            var name = getChildElementByClass(tiles[i], 'name')
+            name.style.fontSize = tile_namesize;
+        }
+        setTimeout(function(){
+            tilepack.addItems(document.getElementsByClassName('tile'));
+            tilepack.reloadItems();
+            tilepack.layout();
+        },200);
+
+    });
+});
+
+    function update_graph(data) {
+
+    }
+
+
+    function populate_detail(ip) {
+        target = targets[ip];
+        media  = medias[ip]
+
+        device_icon.src = target.device_icon;
+        xinnerText(device_name, capitalize(target.name));
+        if (target.device)
+            xinnerText(device, '('+target.device+')');
+        console.log(target.leaks+' le');
+        xinnerText(leaks, target.leaks ? '[may leak passwords]' : ' ');
+
+        // according to jsperf http://jsperf.com/innerhtml-vs-removechild/167
+        // best way to clear childnodes:
+        services.innerHTML = '';
+        if (target.services && target.services.length > 0) {
+            services_header.style.display = 'block';
+            for (var i = 0; i < target.services.length; i++) {
+                var service = target.services[i];
+                var entry = newspan(services, '', 'service');
+                if (service.icon)
+                    newimg(entry, 'service_icon', service.icon, 20, 20);
+                else
+                    newimg(entry, 'service_icon', get_favicon(service.name), 20, 20);
+                entry.innerHTML += service.name;
+            }
+        }
+        else
+            services_header.style.display = 'none';
+
+        mediass.innerHTML = '';
+        if (media && media.length > 0) {
+            medias_header.style.display = 'block';
+            for (var i = 0; i < media.length; i++) {
+                    //var media_id = target.media[i].slice(-10); //use last 10 chars. assume uniq
+                    newimg(mediass, 'media', media[i], null, null);
+            }
+        }
+        else
+            medias_header.style.display = 'none';
+
+
+    }
+
+    var zoomed = false;
+
+    function unzoom_detail () {
+        console.log("unzoom");
+        zoomed = false;
+        details.className += ' detail_unzoom';
+        details.addEventListener("animationend", fn_hide = function(e){
+            details.className = 'hidden';
+            details.removeEventListener(e.type, fn_hide, false);
+        }, false);
+
+    }
+    function zoom_detail (tile, show_for_miliseconds) {
+        // TODO: Align details so that it appears to come out of tile
+        zoomed = true;
+
+        var ip = tile.id;
+        populate_detail(ip);
+        tile.className += ' tile_zoom';
+        details.addEventListener("animationend", fn_zoom = function(e){
+            tile.className = tile.className.replace(' tile_zoom', '');
+            details.removeEventListener(e.type, fn_zoom, false);
+        }, false);
+
+
+        // setTimeout(function(){
+        //     tile.className = tile.className.replace(' tile_zoom', '')
+        //     }, 1000);
+
+        // setTimeout(function(){
+        //     details.className = details.className.replace(' detail_zoom', '')
+        //     }, 1000);
+
+        // sort with packerery:
+        // details.addEventListener("webkitAnimationEnd", function(){
+        //     setTimeout(function(){
+        //         pack.addItems(document.getElementsByClassName('media'));
+        //         pack.layout();
+        //     },100);
+        // }, false);
+
+        // details.addEventListener("webkitAnimationEnd", function(){
+        //     setTimeout(function(){
+        //         // pack = new Isotope( mediass, {
+        //         //     //  $('#medias').isotope({
+        //         //   itemSelector: '.media',
+        //         //   layoutMode: 'masonry',
+        //         //   isInitLayout: false,
+        //         // });
+        //
+        //         // pack.addItems(document.getElementsByClassName('media'));
+        //         // pack.layout();
+        //     },200);
+        // }, false);
+
+        details.className = 'shown detail_zoom';
+
+        details.addEventListener("animationend", fn_media = function(e){
+            details.className = 'shown';
+            setTimeout(function(){
+                pack.addItems(document.getElementsByClassName('media'));
+                pack.reloadItems();
+                pack.layout();
+                details.removeEventListener(e.type, fn_media, false);
+            },300);
+        }, false);
+
+
+        setTimeout(unzoom_detail, show_for_miliseconds);
+
+        details.addEventListener( 'click', function( event ) {
+            event.preventDefault();
+            unzoom_detail();
+        } );
+
+    }
+
+
+
+
+    function update_data (target, media) {
+        // if the name has changed, force an update of the tile regardless if it is new or not
+        var force_tile_update = false;
+        if (targets[target.ip] && (targets[target.ip].name != target.name || targets[target.ip].device != target.device))
+            force_tile_update = true;
+
+        targets[target.ip] = target;
+        update_tile(target, force_tile_update);
+        // save media for details
+        if (media)
+            medias[target.ip] = media.reverse();
+        else if (!medias[target.ip])
+            medias[target.ip] = []
+    }
+
+    function update_tile(target, force_tile_update) {
+        var id = target.ip;
+        var tile = document.getElementById(id);
+        if (!tile) { // IS NEW
+            var tile = tile_template.cloneNode(true); //include children
+            tile.id = id;
+            tile.addEventListener( 'click', function( event ) {
+                event.preventDefault();
+                zoom_detail(tile, 60000*4);
+            } );
+
+            var device_icon = getChildElementByClass(tile, 'device_icon');
+            device_icon.src = target.device_icon;
+
+            var name = getChildElementByClass(tile, 'name');
+            xinnerText(name, capitalize(target.name));
+
+            // support dynamic sizes
+            tile.style.maxWidth = tile_maxwidth;
+            tile.style.maxHeight = tile_maxheight;
+            device_icon.style.height = tile_iconsize;
+            device_icon.style.width = tile_iconsize;
+            name.style.fontSize = tile_namesize;
+
+
+            // var device_type = getChildElementByClass(tile, 'device_type');
+            // xinnerText(device_type, capitalize(target.device)+' device');
+
+            tile_container.appendChild(tile);
+            setTimeout(function(){
+                tilepack.addItems(document.getElementsByClassName('tile'));
+                tilepack.reloadItems();
+                tilepack.layout();
+            },200);
+
+        }
+        else { // not new
+
+            if (force_tile_update) {
+                // we may want to update this content post setup
+                var device_icon = getChildElementByClass(tile, 'device_icon');
+                device_icon.src = target.device_icon;
+
+                var name = getChildElementByClass(tile, 'name');
+                xinnerText(name, capitalize(target.name));
+            }
+
+            // trigger some animation or flash indicating a new packet was sent
+        }
+
+        if (target.leaks) {
+            if (tile.className.indexOf('leaks') < 0) {
+                tile.className += ' leaks';
+            }
+        }
+        else {
+            tile.className = tile.className.replace(' leaks', '');
+            if (target.hasimages)
+                tile.className += ' hasimages';
+        }
+
+        var name = getChildElementByClass(tile, 'name');
+        if (name.innerText != capitalize(target.name))
+            xinnerText(name, capitalize(target.name));
+
+
+        if (tile.className.indexOf('flash') < 0) {
+            tile.className += ' flash';
+            setTimeout(function(){
+                tile.className = tile.className.replace(' flash', '')
+                }, 2000);
+        }
+    }
+
+
+    //
+    // GRAPHS
+    //
+
+  //   var parseDate = d3.time.format("%d-%b-%y").parse;
+  //   d3.json("linePlusBarData.json",function(error,data) {
+  // nv.addGraph(function() {
+  //     var chart = nv.models.linePlusBarChart()
+  //           .margin({top: 30, right: 60, bottom: 50, left: 70})
+  //           //We can set x data accessor to use index. Reason? So the bars all appear evenly spaced.
+  //           .x(function(d,i) { return i })
+  //           .y(function(d,i) {return d[1] })
+  //           ;
+  //
+  //     chart.xAxis.tickFormat(function(d) {
+  //       var dx = data[0].values[d] && data[0].values[d][0] || 0;
+  //       return d3.time.format('%x')(new Date(dx))
+  //     });
+  //
+  //     chart.y1Axis
+  //         .tickFormat(d3.format(',f'));
+  //
+  //     chart.y2Axis
+  //         .tickFormat(function(d) { return '$' + d3.format(',f')(d) });
+  //
+  //     chart.bars.forceY([0]);
+  //
+  //     d3.select('#chart svg')
+  //       .datum(data)
+  //       .transition()
+  //       .duration(0)
+  //       .call(chart);
+  //
+  //     nv.utils.windowResize(chart.update);
+  //
+  //     return chart;
+  // });
+
+// var context = cubism.context()
+//                     .step(6e4) // Distance between data points in milliseconds
+//                     .size(400) // Number of data points
+//                     .stop();   // Fetching from a static data source; don't update values
+
+
+//
+// image layout
+//
+// var container = document.querySelector('#medias');
+// eventie.bind( medias, 'click', function( event ) {
+//   // don't proceed if item was not clicked on
+//   if ( !classie.has( event.target, 'item' ) ) {
+//     return;
+//   }
+//   // change size of item via class
+//   classie.toggle( event.target, 'gigante' );
+//   // trigger layout
+//   msnry.layout();
+// });
+
+</script>
+<style>
+.flash{
+  animation: flash 0.4s ease-out;
+  animation-iteration-count: 1;
+}
+
+@keyframes flash {
+    0% { background-color:none;}
+    50% { background-color:#000000;}
+    100% {background-color:none;}
+}
+
+
+/*https://desandro.github.io/3dtransforms/docs/perspective.html*/
+* {
+    font-family: "AtlasTypewriterRegular", "Andale Mono", "Consolas", "Lucida Console", "Menlo", "Luxi Mono", monospace;
+    font-size: 1em;
+}
+.body {
+    margin:0; padding:0; border:0;
+    transform: scale(3);
+    transform-origin: 300% 300%;
+
+}
+
+
+/*GRAPHS*/
+#example2a { min-height: 153px; }
+
+</style>
+</head>
+<body>
+<style>
+#message { font-size: 38px; color: #eee;
+    background-color: #000;
+    font-weight: bold;
+    text-align: center;
+    margin-top:-8px;
+    margin-left:-6px;
+    margin-right: -20px;
+    width: 100%;
+    padding: 10px;
+    padding-top: 18px;
+    padding-bottom:16
+}
+</style>
+
+<!-- <div id='message'>Teilen! wifi: herbst2014 passwort: herbst2014</div> -->
+<div id=tiles>
+</div>
+
+<script>
+</script>
+<style>
+
+.tile {
+    position:relative;
+    display: inline-block;
+    max-width: 350px;
+    max-height: 140px;
+    overflow: hidden;
+    border-radius: 5px;
+    _padding: 20px;
+    margin: 4px;
+    white-space: nowrap;
+}
+.tile .device_icon {
+    /*display: none;-*/
+    width: 80px;
+    height: 80px;
+}
+.tile .name {
+    font-size: 60px;
+}
+.tile .device {
+    font-size: 42px;
+
+}
+.tile {
+    font-size: 28px;
+}
+.tile span, .tile img {
+    vertical-align:middle;
+}
+
+.leaks {
+    background-color: #ffe0dd;
+}
+.hasimages {
+    background-color: #eeeeee;
+}
+#leaks {
+    white-space: nowrap;
+    /*background-color: #ffe0dd;*/
+    background-color: #ffefef;
+    /*padding: 8px;*/
+    border-radius: 4px;
+
+}
+#device_header img {
+    width: 80px;
+    height: 80px;
+    padding-right: 0.4em;
+    vertical-align:middle;
+}
+#device_header span {
+    font-size: 42;
+    vertical-align:middle;
+}
+#services_header, #medias_header {
+    display: none;
+    font-size: 28px;
+    padding: 20px 0px 20px 0px;
+}
+#medias {
+    padding: 12px;
+}
+.service {
+    display: block;
+}
+.service span {
+    vertical-align:middle;
+}
+.service img {
+    padding-right: 8px;
+    _padding-left: 20px;
+    vertical-align:middle;
+}
+.media {
+    padding: 0px;
+    margin: 0;
+    max-width: 200px;
+    max-height: 200px;
+    /*-webkit-filter: grayscale(1);*/
+    /*opacity: 0.7;*/
+}
+.media img.desaturate { filter: grayscale(100%); }
+
+#service_box {
+    _width: 33%;
+    +float: left;
+    margin-right: 10px;
+}
+#media_box {
+    display: block;
+}
+#details {
+    font-size: 18px;
+    /*display: none;*/
+    /*visibility: hidden;*/
+    /*display: block;*/
+    /*opacity: 0;*/
+    position: absolute;
+    padding: 20px;
+    border-radius: 20px;
+    border: 0px solid;
+    z-index:1;
+    background-color: #FFFFFF;
+    top:0;
+    left:0;
+    right:0;
+    bottom:120;
+    overflow: hidden;
+}
+.hidden {
+    display: none;
+}
+.shown {
+    display: block;
+}
+table {
+border:none;
+border-collapse: collapse;
+}
+
+table td {
+border-left: 1px solid #eee;
+padding-left: 20px;
+border-right: 1px solid #eee;
+padding-right: 10px;
+}
+
+table td:first-child {
+border-left: none;
+padding-left: 10px;
+/*padding-left: 0px;*/
+}
+
+table td:last-child {
+border-right: none;
+/*padding-left: 0px;*/
+}
+
+/*
+ ANIMATIONS
+ */
+.tile_zoom {
+  animation: tile_zoom 0.3s ease-out, tile_unzoom;
+  animation-iteration-count: 1;
+}
+@keyframes tile_zoom {
+    0% { width: 0%; height: 0%; background-color: none;}
+    50% { width: 50%; height: 50%; background-color:#000000;}
+    100% { width: 100%; height: 100%; background-color:none;}
+}
+@keyframes tile_unzoom {
+    0% { width: 100%; height: 100%; background-color: none;}
+    50% { width: 50%; height: 50%; background-color:#000000;}
+    100% { width: none; height: none; background-color:none;}
+}
+
+.detail_zoom {
+    animation: detail_zoom 0.3s ease-out;
+    animation-iteration-count: 1 ;
+}
+@keyframes detail_zoom {
+    0% {   width: 10%; height: 10%; background-color: none;
+           border: 200px solid; }
+    50% {  width: 50%; height: 50%; background-color:#000000;
+           border: 100px dotted; }
+    100% { width: 100%; height: 100%; background-color:#ffffff;
+           border: none;      }
+}
+
+.detail_unzoom {
+    animation: detail_unzoom 0.3s ease-out;
+    animation-iteration-count: 1;
+}
+@keyframes detail_unzoom {
+    0% { width: 100%; height: 100%; background-color:#ffffff;
+         border: none;}
+    50% { width: 50%; height: 50%; background-color:#000000;
+          border: 100px dotted;}
+    100% { width: 10%; height: 10%; background-color: none;
+           border: 200px solid;}
+}
+
+
+@keyframes fadeIn {
+    1% { opacity: 0; visibility: hidden; }
+    2% { opacity: 0; visibility: visible;}
+    100% { opacity: 1; visibility: visible;}
+}
+@keyframes fadeOut {
+    1% { opacity: 1; visibility: visible;}
+    99% { opacity: 0; visibility: visible;}
+    100% { opacity: 0; visibility: hidden; }
+}
+
+
+</style>
+<div id="details" class=" hidden">
+<div id="device_header">
+  <img id="device_icon" src="">
+  <span id="name"></span>
+  <span id="device"></span>
+  <span id="leaks"></span>
+</div>
+<table><td width=25% valign=top>
+<div id="service_box">
+    <div id="services_header">Recent&nbsp;Services:</div>
+    <div id="services">
+    </div>
+</div>
+</td><td valign=top>
+<div id="media_box">
+    <div id="medias_header">Recently&nbsp;accessed&nbsp;images:</div>
+    <div id="medias">
+    </div>
+</div>
+</td></table>
+<div id="overlay"></div>
+</div>
+
+<!--<style>#demo{z-index:900; position: fixed; bottom:0; background-color: #fff}</style>
+<div id="example2a"></div>
+<div id="_demo"></div>-->
+
+<script src="/ui/js/d3/d3.min.js" type="text/javascript"></script>
+<!-- <script src="http://square.github.io/cubism/cubism.v1.js" type="text/javascript"></script> -->
+
+<script>
+// var context = cubism.context()
+//     .step(1e3)
+//     .size(700)
+//     .serverDelay(0)
+//     .clientDelay(0);
+//
+//
+// function stock(name) {
+//   var value = 0,
+//       values = [],
+//       i = 0,
+//       last;
+//   return context.metric(function(start, stop, step, callback) {
+//     start = +start, stop = +stop;
+//     if (isNaN(last)) last = start;
+//     while (last < stop) {
+//       last += step;
+//       value = Math.max(-10, Math.min(10, value + .8 * Math.random() - .4 + .2 * Math.cos(i += .2)));
+//       values.push(value);
+//     }
+//     callback(null, values = values.slice((start - stop) / step));
+//   }, name);
+// }
+//
+// var eurusd = stock("EURUSD");
+// var zero = context.constant(0);
+// var scale = context.constant(0.4*10000);
+
+//var titles['EURUSD', 'my sell order of 0.4lots'];
+
+// function random(name) {
+//   var value = 0,
+//       values = [],
+//       i = 0,
+//       last;
+//   return context.metric(function(start, stop, step, callback) {
+//     start = +start, stop = +stop;
+//     if (isNaN(last)) last = start;
+//     while (last < stop) {
+//       last += step;
+//       value = Math.max(-10, Math.min(10, value + .8 * Math.random() - .4 + .2 * Math.cos(i += .2)));
+//       values.push(value);
+//     }
+//     callback(null, values = values.slice((start - stop) / step));
+//   }, name);
+// }
+// var context = cubism.context()
+//     .serverDelay(4000)
+//     .clientDelay(4000)
+//     .step(1000*10)
+//     .size(960);
+//
+// var foo = random("foo"),
+//     bar = random("bar");
+//
+// d3.select("#demo").call(function (div) {
+//   div.append("div")
+//       .attr("class", "axis")
+//       .call(context.axis().orient("top"));
+//
+//   div.selectAll(".horizon")
+//       .data([foo])
+//     .enter().append("div")
+//       .attr("class", "horizon")
+//       .call(context.horizon().extent([-20, 20]));
+//
+//   div.append("div")
+//       .attr("class", "rule")
+//       .call(context.rule());
+//
+// });
+
+
+//     div.append("div")
+//         .attr("class", "axis")
+//         .call(context.axis().orient("top"));
+//     div.selectAll(".horizon")
+//
+//
+//     div.selectAll(".horizon")
+//         .data([eurusd, zero.subtract(eurusd).multiply(scale)])
+//         .enter()
+//         .append("div")
+//         .attr("class", "horizon")
+//         .call(context.horizon()
+//         .height(60)
+//         .colors(["#bdd7e7", "#bae4b3"])
+//         //.title(function(i){return titles[i];})
+//     /*.format(d3.format("+,.2p"))*/
+//     );
+//
+//     div.append("div")
+//         .attr("class", "rule")
+//         .call(context.rule());
+//
+// });
+
+// context.on("focus", function (i) {
+//     d3.selectAll(".value").style("right", i == null ? null : context.size() - i + "px");
+// });
+
+
+</script>
+
+<!-- must load after body is loaded, else get
+Uncaught TypeError: Cannot read property 'style' of null
+zoom.js:22 -->
+<!-- <script src="/ui/js/zoom.js" type="text/javascript"></script> -->
+<link href="/ui/js/c3.css" rel="stylesheet" type="text/css">
+<script src="/ui/js/c3.js"></script>
+
+<style>
+#chartcontainer {
+/*z-index:999;*/
+position: fixed !important;
+bottom:0;
+background-color: #fff;
+left:0;
+
+}
+.c3 {
+    z-index:999;
+    position: fixed;
+    bottom: 0;
+    left:0;
+    visibility: hidden;
+    font-size: 5.9vw;
+}
+#chart {
+    border-top: 1px solid #eee;
+    /*z-index:1000;*/
+    /*position: absolute;*/
+    /*bottom:0;*/
+    background-color: #fff;
+    width: 100%;
+    height: 200px;
+}
+#chart .c3-line-data {
+  stroke-width: 2px;
+}
+.labeltext {
+    font-size: 16px;
+}
+.c3-axis {
+    font-size: 1.5vh; /*percent of vert height */
+}
+</style>
+<div id="chartcontainer">
+</div>
+<div id="chart">
+</div>
+<script>
+labels = [
+    // //test
+    // {value: (new Date(new Date()-(1000*60*10))).getTime(), text: '10 minutes ago', class: 'labeltext'},
+    // {value: (new Date(new Date()-(1000*60*5))).getTime(), text: '5 minutes ago', class: 'labeltext'},
+    // {value: (new Date()).getTime(), text: 'Now', class: 'labeltext'},
+    // // day 1
+    // {value: new Date('2014-10-11 11:05'), text: 'CMMN SNS PRJCT', class: 'labeltext'},
+    // {value: new Date('2014-10-11 11:25'), text: 'Christiane Kühl Intro', class: 'labeltext'},
+    // {value: new Date('2014-10-11 11:45'), text: 'Harald Welzer Keynote', class: 'labeltext'},
+    // {value: new Date('2014-10-11 13:00'), text: 'Lunch Break', class: 'labeltext'},
+    // // day 2
+    // {value: new Date('2014-10-12 11:00'), text: 'Ein neues Produkt', class: 'labeltext'},
+    // {value: new Date('2014-10-12 12:25'), text: 'Tuchaček & ', class: 'labeltext'},
+    // {value: new Date('2014-10-12 13:30'), text: 'Lunch Break', class: 'labeltext'},
+    // {value: new Date('2014-10-12 14:30'), text: 'Nature Theater o Okl', class: 'labeltext'},
+    // {value: new Date('2014-10-12 15:00'), text: 'Militant Image', class: 'labeltext'},
+    // {value: new Date('2014-10-12 15:40'), text: 'Cape & Engemann', class: 'labeltext'},
+    // {value: new Date('2014-10-12 16:55'), text: 'Arns & Cubitt', class: 'labeltext'},
+    // {value: new Date('2014-10-12 16:55'), text: 'What\'s left to share?', class: 'labeltext'}
+    // WITHOUT LABELS
+
+    // day 1
+    // {value: new Date('2014-10-11 11:05'), text: '', class: 'labeltext'},
+    // {value: new Date('2014-10-11 11:25'), text: '', class: 'labeltext'},
+    // {value: new Date('2014-10-11 11:45'), text: '', class: 'labeltext'},
+    // {value: new Date('2014-10-11 12:15'), text: '', class: 'labeltext'},
+    // {value: new Date('2014-10-11 13:00'), text: '', class: 'labeltext'},
+    // day 2
+    // {value: new Date('2014-10-12 11:00'), text: 'Faroki', class: 'labeltext'},
+    // {value: new Date('2014-10-12 12:25'), text: 'Tuchaček', class: 'labeltext'},
+    // {value: new Date('2014-10-12 13:00'), text: 'Shah', class: 'labeltext'},
+    // {value: new Date('2014-10-12 14:00'), text: 'Lunch', class: 'labeltext'},
+    // {value: new Date('2014-10-12 15:00'), text: 'N.T.Ok.', class: 'labeltext'},
+    // {value: new Date('2014-10-12 15:40'), text: '', class: 'labeltext'},
+    // {value: new Date('2014-10-12 15:50'), text: 'Mil IMG', class: 'labeltext'},
+    // {value: new Date('2014-10-12 16:30'), text: 'Cape', class: 'labeltext'},
+    // {value: new Date('2014-10-12 16:55'), text: 'Engemann', class: 'labeltext'},
+    // {value: new Date('2014-10-12 17:20'), text: 'QA', class: 'labeltext'},
+    // {value: new Date('2014-10-12 18:10'), text: 'Arns', class: 'labeltext'},
+    // {value: new Date('2014-10-12 18:45'), text: '?', class: 'labeltext'} // 19:45
+]
+dates = ['x']
+values = ['data']
+if (DISABLE_GRAPH) {
+    document.getElementById('chart').style.display='none';
+    document.getElementById('details').style.bottom='0';
+}
+else {
+var chart = c3.generate({
+    bindto: '#chart',
+    size: {    height: 120},
+    interaction: { enabled: false},
+
+    data: {
+        colors: {data:'#aaaaaa'},
+       x: 'x',
+        columns: [
+            dates,
+            values
+        ],
+        types: {
+            data: 'area'
+        },
+        names: {
+            data: 'Network activity'
+        }
+
+    },
+    grid: {
+        x: {
+            lines: labels
+        }
+    },
+    axis: {
+        x: {
+        //    type: 'category',
+            // label: {
+            //     text: 'Network Traffic',
+            //     position: 'inner-left'
+            // },
+            type: 'timeseries',
+            tick: {
+                fit: true,
+                format: '%H:%M',
+                culling: {
+                    max: 10
+                }
+            }
+        },
+        y: { show: false}
+    },
+legend: { show: false, /*position: 'right'*/ },
+    point: {
+        show: false
+    }
+});
+
+socket.on('net_graph', function(data) {
+    console.log('net_graph')
+    console.log(data);
+    var chart_x = ['x'];
+    var chart_y = ['data'];
+    for (var i = 0; i <data.length-1; i++) {
+        chart_x.push(data[i].date*1000);
+        chart_y.push(data[i].value);
+    }
+    chart.load({ columns: [ chart_x, chart_y ] });
+    // setTimeout(function(){ //bullshit
+        document.getElementById('chart').style.position='fixed';
+        document.getElementById('chart').style.visibility='visible';
+
+    // }, 200)
+});
+setInterval(function(){socket.emit('get_net_graph');
+}, 60000);
+}
+</script>
+</body>
+</html>

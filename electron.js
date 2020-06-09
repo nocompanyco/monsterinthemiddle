@@ -1,79 +1,171 @@
 'use strict';
 
-const electron      = require('electron');
-const app           = electron.app;
-const BrowserWindow = electron.BrowserWindow;
-const fork          = require('child_process').fork;
-const ipc           = require("electron").ipcMain;
+const { ipcMain, app, Menu, BrowserWindow } = require('electron');
+const fork = require('child_process').fork;
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
-var mainWindow      = null;
 var settingsWindow  = null;
-var captureProc   = null; // child fork handler
+var packetsWindow   = null;
+var devicesWindow   = null;
+var packetsProc     = null; // child fork handler for packets capture
+var devicesProc     = null; // child fork  handler for devices ui 
+
+let menuTemplate = [
+{ label: '&File', submenu: [
+    // { label: 'Open saved session', accelerator: 'CmdOrCtrl+O',
+    // click (item, win) { showSettings(); } },
+    // { label: 'Save session', accelerator: 'CmdOrCtrl+S',
+    // click (item, win) { showSettings; } },
+    { type: 'separator' },
+    { role: 'close' },
+    { role: 'quit' }
+]},
+{ label: '&Capture', submenu: [
+    { label: 'Show Devices', accelerator: 'CmdOrCtrl+D',
+      click (item, win) { showDevices() } },
+    { label: 'Show Packets', accelerator: 'CmdOrCtrl+P',
+      click (item, win) { showPackets(); } },
+]},
+{ label: '&View', submenu: [
+    { role: 'reload'}, 
+    { role: 'toggleDevTools'}, 
+    // { label: 'Toggle Developer Tools', 
+    //   accelerator: process.platform === 'darwin' ? 'Alt+Command+I' : 'Ctrl+Shift+I',
+    //   click (item, win) { if (win) win.webContents.toggleDevTools() } },
+    { type: 'separator' },
+    { role: 'resetzoom' },
+    { role: 'zoomin' },
+    { role: 'zoomout' },
+    { type: 'separator' },
+    { role: 'togglefullscreen' } ] },
+{ label: '&Help', submenu: [
+    { label: 'Documentation',
+      click () { require('electron').shell.openExternal('https://github.com/nocompanyco/monisterinthemiddle') } },
+    { label: 'About',
+      click () { require('electron').shell.openExternal('https://counterpart.org') } } ] }
+];
+const menu = Menu.buildFromTemplate(menuTemplate);
+
+
 
 // First window should be settings window
 function showSettings() {
+    if (settingsWindow) {
+      settingsWindow.show();
+      return;
+    }
     settingsWindow = new BrowserWindow({
-        width: 430, height: 600, frame: false, 
+        width: 650, height: 500, frame: false, 
         titleBarStyle: 'hidden',
-        title: 'Monster in the Middle - Settings',
-        webPreferences: {
+        title: 'Settings',
+          webPreferences: {
             nodeIntegration: true
+            // enableRemoteModule: true
           }
         });
+        Menu.setApplicationMenu(menu);
+
     settingsWindow.loadURL('file://' + __dirname + '/ui/settings.html');
     // settingsWindow.webContents.openDevTools();
 }
 
-function showMain () {
+
+function showPackets () {
+    if (packetsWindow) {
+      packetsWindow.show();
+      return;
+    }
+
     // Create the browser window.
-    mainWindow = new BrowserWindow({
-        width: 800, height: 600, show: false,
-        title: 'Monster in the Middle',
+    packetsWindow = new BrowserWindow({
+        width: 800, height: 600, show: true,
+        x: 100, y: 100,
+        title: 'Packets',
         frame: true, //no removes all borders
         webPreferences: {
             nodeIntegration: true
           }
     });
-    // mainWindow.setMenu(null);
-    // mainWindow.webContents.openDevTools();
-
-    // and load the index.html of the app.
-    // mainWindow.loadURL('file://' + __dirname + '/ui/index.html');
-    // mainWindow.show();
-    // settingsWindow.close();
+    Menu.setApplicationMenu(menu);
+    // packetsWindow.setMenu(null);
+    // packetsWindow.webContents.openDevTools();
 
     setTimeout(function(){
-        mainWindow.loadURL('http://localhost:8080');
-        mainWindow.show();
-        settingsWindow.close();
+        packetsWindow.loadURL('http://localhost:8080');
+        packetsWindow.show();
     }, 2000);
 
-    mainWindow.on('closed', function() {
-      mainWindow = null;
-      if (captureProc !== null)
-        captureProc.kill('SIGINT');
+    packetsWindow.on('closed', function() {
+      packetsWindow = null;
     });
+  }
 
+function showDevices () {
+  if (devicesWindow) {
+    devicesWindow.show();
+    return;
+  }
+  devicesWindow = new BrowserWindow({
+    width: 800, height: 600, show: true,
+    title: 'Devices',
+    frame: true, //no removes all borders
+    webPreferences: {
+      nodeIntegration: true,
+                  enableRemoteModule: true
+    }
 
+  });
+  Menu.setApplicationMenu(menu);
+  // devicesWindow.webContents.openDevTools();
+
+  setTimeout(function(){
+    devicesWindow.loadURL('http://localhost:8081');
+    devicesWindow.show();
+    settingsWindow.close();
+  }, 2000);
+
+  devicesWindow.on('closed', function() {
+    devicesWindow = null;
+  });
 }
 
-ipc.on('settings-change', function(e, arg) {
-    console.log('settings changed', arg);
-    if (captureProc !== null)
-        captureProc.kill('SIGINT');
+
+ipcMain.on('start-live-capture', function(e, arg) {
+    console.log('start-live-capture', arg);
+    // if settings ui opened and settins changged, restart:
+    var killwait = 0;
+    if (packetsProc !== null) {
+      packetsProc.kill('SIGINT');
+      killwait = 1000;
+    }
+    if (devicesProc !== null) {
+      devicesProc.kill('SIGINT');
+      killwait = 1000;
+    }
+    // wait at least one second for restart
     setTimeout(function(){
-        captureProc = fork(__dirname+'/index.js', [arg.eth, arg.filter, arg.gateway]);
-        if (mainWindow == null) {
-            setTimeout(showMain, 1000);
-        }
-    }, 1000); // wait one second for existing process to die
+        packetsProc = fork(__dirname+'/packets.js', [arg.eth, arg.filter, arg.gateway]);
+        setTimeout(function(){
+          devicesProc = fork(__dirname+'/devices.js');
+          if (devicesWindow == null) {
+            //setTimeout(showPackets, 1000);
+            setTimeout(showDevices, 1000);
+            
+          }
+        }, 1000);
+    }, killwait); // wait one second for existing process to die
+});
+ipcMain.on('start-load-capture', function(e, arg) {
+  console.log('start-load-capture',arg)
+  console.log('TODO')
 });
 
 // Quit when all windows are closed.
 app.on('window-all-closed', function() {
-  // On OS X it is common for applications and their menu bar
+  if (packetsProc !== null) packetsProc.kill('SIGINT');
+  if (devicesProc !== null) devicesProc.kill('SIGINT');
+// On OS X it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
   if (process.platform != 'darwin') {
     app.quit();
@@ -87,3 +179,5 @@ app.on('ready', function() {
   console.log('ready');
   showSettings();
 });
+
+

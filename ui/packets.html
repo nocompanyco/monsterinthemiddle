@@ -1,22 +1,6 @@
 <html>
 <head>
-<!--
-License: Non-White-Heterosexual-Male
-
-If you are not a white heterosexual male you are permitted to copy, sell and use
-this code in any manner you choose without need to include any attribution you
-do not see fit. You are asked as a courtesy to retain this license in any
-derivatives but you are not required. If you are a white heterosexual male you
-are provided the same permissions (reuse, modification, resale) but are
-*required* to include this license in any documentation and any public facing
-code that could be viewed (via browser, terminal or other) or in any file
-distributed publicly. You are also required to attribute the author of whichever
-derivitive your work is based on.
--->
-<!--
-by cyphunk@deadhacker.com for use in the Anonymous-P theater production.
--->
-
+    
 <script src="/socket.io/socket.io.js"></script>
 <script src="/ui/js/highcharts.src.js"></script>
 <script src="/ui/js/map.src.js"></script>
@@ -244,7 +228,7 @@ by cyphunk@deadhacker.com for use in the Anonymous-P theater production.
         console.log('img: '+src);
         if(src) {
             img_box.style.display = 'block';
-            img_box.style.left    = '40px';//xy.x-50+'px';
+            img_box.style.left    = xy.x-200+'px';//'40px';
             img_box.style.top     = xy.y-200+'px';
             img_box.innerHTML     = '<img src="http://'+src+'">';
         }
@@ -514,12 +498,14 @@ span {
     display:none;
 }
 #img_box {
-    width: 400px;
-    height: 400px;
+    _width: 400px;
+    _height: 400px;
+    padding: 2em;
 }
 #img_box img {
-    width: 400px;
-    height: 400px;
+    /* width: 400px;
+    height: 400px; */
+    /* width: 150%; */
 }
 #container {
     opacity: 0.9;
@@ -545,11 +531,11 @@ span {
 </head>
 <body><div id="user_id">&nbsp;</div><div id="img_box">&nbsp;</div>
 <div id="infobar" class="disconnected">
-    <span id="packetcount">&nbsp;</span>
-    <input type=checkbox id="autoscroll">autoscroll
+    <input type=checkbox id="autoscroll" checked>autoscroll
     <input type=checkbox id="shownames" onclick="toggle_names()" checked>names
     <input type=checkbox onclick="auto_open_img=!auto_open_img">autoimg
     <input type=checkbox id="mapbox"onclick="toggle_map()">map
+    <span id="packetcount">&nbsp;</span>
 </div>
 <br>
 <table>

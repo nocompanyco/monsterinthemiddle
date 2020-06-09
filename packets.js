@@ -110,10 +110,8 @@ const gatewayip    = process.argv[4];
 const pcap = require("pcap");
 var pcap_session, cap_session, cap_linktype;
 try {
+    // on windows use cap to get packet (still decoded by pcap)
     if (isWin) {
-    // to debug windows codepath on linux:
-    // if (1 || isWin) {
-
         const cap = require('cap');
         var cap_session = new cap.Cap();
         var buffer = Buffer.alloc(65535);
@@ -252,7 +250,7 @@ server.listen(8080);
 console.log("index.js client listening on http 8080");
 
 app.get('/', function (req, res) {
-    res.sendFile(__dirname + '/ui/index.html');
+    res.sendFile(__dirname + '/ui/packets.html');
 });
 app.use('/ui', express.static(__dirname + '/ui'));
 

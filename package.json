@@ -9,10 +9,10 @@
     "linux",
     "win"
   ],
-  "main": "index.js",
+  "main": "packets.js",
   "scripts": {
     "start_electron": "electron electron.js",
-    "start_node": "node index.js",
+    "start_node": "node packets.js",
     "rebuild_electron": "electron-rebuild -f -w .",
     "rebuild_node": "npm rebuild ."  
   },
