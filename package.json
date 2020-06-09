@@ -14,8 +14,47 @@
     "start_electron": "electron electron.js",
     "start_node": "node packets.js",
     "rebuild_electron": "electron-rebuild -f -w .",
-    "rebuild_node": "npm rebuild ."  
+    "rebuild_node": "npm rebuild .",
+    "pack": "electron-builder --dir",
+    "dist:all": "dist:windows dist:mac dist:linux",
+    "dist:mac": "electron-builder --mac",
+,   "dist:windows": "electron-builder --win --x64 --i32",
+    "dist:linux": "electron-builder --linux"
+,   "dist:linuxwindows": "WINEPREFIX=~/.win32 WINEARCH=win32 electron-builder --win --x64 --i32"
   },
+  "build": {
+    "appId": "org.counterpart.monsterinthemiddle",
+    "productName": "monsterinthemiddle",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "mac": {
+      "category": "your.app.category.type",
+      "target": [
+        "zip"
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "type": "development"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "allowElevation": true,
+      "oneClick": false,
+      "perMachine": true
+    },
+    "linux": {
+      "target": [
+        "deb",
+        "apk",
+        "tar.gz"
+      ]
+    }
+  },
+
   "dependencies": {
     "cap": "^0.2.1",
     "default-network": "^0.2.0",
