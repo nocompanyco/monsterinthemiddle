@@ -12,6 +12,11 @@ For UI version:
     npm run rebuild_electron
     npm run start_electron
 
+For console version:
+    npm install
+    npm rebuild
+    npm run start_node
+
 ### Build
 
     npm install
