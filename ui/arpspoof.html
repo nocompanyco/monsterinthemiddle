@@ -1,0 +1,409 @@
+<html>
+<head>
+    
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+
+    // localStorage.debug='*';
+    localStorage.debug='';
+
+    var socket, poll_connection;
+
+    var packet_count = 0;
+
+    var mouse_tick_max = 20; //debounce: mouse must move n pixes before action
+
+    var auto_open_img = false;
+
+
+    //
+    // Generic functions
+    //
+
+    function http_get(theUrl)
+    {
+        var xmlHttp = null;
+        try {
+                xmlHttp = new XMLHttpRequest();
+                xmlHttp.open( "GET", theUrl, false );
+                xmlHttp.send( null );
+            }
+        catch(err) {
+            console.log(err);
+            return null;
+        }
+        return JSON.parse(xmlHttp.responseText);
+    }
+
+    // cross browser shit
+    function xinnerText(elem,newtext) {
+        if (newtext) {
+            if (elem && elem.innerText !== undefined)        // most browsers do this
+                elem.innerText = newtext;
+            else if (elem && elem.textContent !== undefined) // "standards compliant browsers"
+                elem.textContent = newtext; //  (aka only firefox) do this
+            }
+        else {
+            if (elem && elem.innerText !== undefined)
+                return elem.innerText;
+            else if (elem && elem.textContent !== undefined)
+                return elem.textContent;
+            }
+    }
+
+
+
+    //
+    // PACKET LOG
+    //
+
+    // cloning nodes is faster (jsperf.com)
+    var span = document.createElement('span');
+    function newspan (par, text, spanclass) {
+        var newspan = span.cloneNode();
+        xinnerText(newspan, text);
+        if (spanclass)
+            newspan.className=spanclass; // hell we could probably speed things
+        par.appendChild(newspan);        // up by cloning each span type.oh well
+        return newspan;
+    }
+
+
+
+
+
+
+
+    var network_settings = {
+        gatewayip: null,
+        ip_range_start: null,
+        ip_range_end: null,
+        myip: null
+    }
+    function network_settings_update(settings) {
+        network_settings = settings
+        Object.keys(network_settings).forEach(function(key){
+            if (network_settings[key] && document.getElementById(key))
+                document.getElementById(key).value = network_settings[key]
+        })
+    }
+
+    function __trigger_test(str,data) { // just test sockets from console
+            console.log(str)
+            socket.emit(str, data)
+        }
+
+
+
+    // wait for page to load and then find and define the container var
+    var table, mouse_tick_count = 0;
+
+    window.onload = function() {
+        table       = document.getElementById('host_list');
+
+        // if (document.getElementById('shownames').checked)
+        //     show_hostnames = true;
+
+
+        //
+        // SOCKET
+        //
+
+        socket = io.connect('');
+
+        socket.on('connect', function () {
+            var infobar = document.getElementById('infobar');
+            infobar.className='connected';
+        });
+
+        var poll_connection = setInterval(function(){
+            if (!socket.connected) {
+                var infobar = document.getElementById('infobar');
+                infobar.className='disconnected';
+            }
+        }, 1000);
+
+        socket.on('found_hosts', data => console.log('found_hosts',data));
+        socket.on('recent_hosts', data => console.log('recent_hosts',data));
+        socket.on('filter_ips', data => console.log('filter_ips',data));
+        socket.on('spoofloop_status', data => console.log('spoofloop_status',data));
+
+        socket.on('network_settings', data => {
+            console.log('network_settings',data)
+            network_settings_update(data);
+        });
+
+            // var dat = data.data;
+
+            // packet_count += 1;
+            // xinnerText(packetcount, packet_count+'/'+dat.count);
+
+            // newRow(table,dat);
+
+            // if (document.getElementById('autoscroll').checked)
+            //     window.scrollTo(0, document.body.scrollHeight);
+    }
+
+
+    // first time, qssumes clicked to have others other than keepclass hidden
+    var hide_others = true;
+    function toggleRowVisibility(keepclass) {
+        var tr = document.getElementsByTagName('tr');
+
+        for (var i = 0; i < tr.length; i++) {
+            if (!tr[i].classList) // trying to avoid a invalid reference error with this check
+                continue;
+            if(tr[i].classList.contains(keepclass)) {
+                tr[i].style.display ='table-row';
+            }
+            else  {
+                if (hide_others)
+                    tr[i].style.display = 'none';
+                else
+                    tr[i].style.display = '';
+            }
+        }
+        hide_others = !hide_others;
+    }
+
+    // The UI Packet printing meat
+    function newRow(table, dat) {
+        var row = table.insertRow(-1);
+        // give row class 'http_url 10_0_0_1'
+        if (dat.app && dat.app.type) row.className = dat.app.type.replace(/ /g,'_'); // turns 'http url' into 'http_url'
+        if (dat.siplocal)            row.className += ' '+dat.sip.replace(/\./g,'_'); // turns 10.0.0.1 to 10_0_0_1
+        else if (dat.diplocal)       row.className += ' '+dat.dip.replace(/\./g,'_');
+
+
+        var cell_src = row.insertCell(-1);
+        var divider  = row.insertCell(-1).innerHTML = '>>';
+        var cell_dst = row.insertCell(-1);
+        var cell_app = row.insertCell(-1);
+
+
+        if (dat.siplocal && dat.sdevice) newspan(cell_src, dat.sdevice,   'device');
+        if (!dat.siplocal && dat.sgeo)   newspan(cell_src, dat.sgeo, 'geo');
+        // prefer mdns name
+        var sname;
+        if (dat.smdnsname)               sname = newspan(cell_src, dat.smdnsname, 'name');
+        else if (dat.sname)              sname = newspan(cell_src, dat.sname,     'name');
+        if (!show_hostnames)             sname.style.display = 'none';
+
+        var left_ip = newspan(cell_src, dat.sip, 'ip');
+        // Handle name resolution for IP
+        if (dat.siplocal) {
+            /*
+            left_ip.onmouseover = function(event){ // show user_id
+                if(mouse_tick_count++ < mouse_tick_max)
+                    show_user_id_from_ip(dat.sip, {x:event.pageX, y:event.pageY})
+            };
+            left_ip.onmouseout = function() {
+                mouse_tick_count=0;
+                xinnerText(user_id,'');
+                user_id.style.display='none';
+            };
+            */
+            //filter for IP (alt+click pr ctrl+click):
+            left_ip.onclick = function(event){
+                if(event.altKey || event.ctrlKey) {
+                    var filterclass = this.parentElement.parentElement.classList[1];
+                   console.log('toggle filter: '+filterclass); // gets IP class (10_0_0_1) from class list
+                   toggleRowVisibility(filterclass);
+                }
+            }
+        }
+
+        var right_ip = newspan(cell_dst, dat.dip, 'ip')
+        // prefer mdns name
+        var dname;
+        if (dat.dmdnsname)               dname = newspan(cell_dst, dat.dmdnsname, 'name');
+        else if (dat.dname)              dname = newspan(cell_dst, dat.dname,     'name');
+        if (!show_hostnames)             dname.style.display = 'none';
+        if (!dat.diplocal && dat.dgeo)   newspan(cell_dst, dat.dgeo, 'geo');
+        if (dat.diplocal && dat.ddevice) newspan(cell_dst, dat.ddevice,   'device');
+
+        // geo cache for charts
+        if (dat.sgeo) geo_cache.hit(dat.sgeo);
+        if (dat.dgeo) geo_cache.hit(dat.dgeo);
+
+        // console.log(dat);
+        // console.log(dat.app.type ? true:false); console.log(dat.app);
+        if (dat.app.type) {
+
+            cell_app.className="data "+dat.app.type.replace(' ','_');
+            newspan(cell_app, dat.app.type.toUpperCase(), 'type');
+
+
+            // if (dat.app.type == 'https')  {}
+
+                 if (dat.app.type == 'dns request')   newspan(cell_app, dat.app.name, 'data');
+            else if (dat.app.type == 'dns response')  newspan(cell_app, dat.app.name+' = '+dat.app.ip, 'data');
+            else if (dat.app.type == 'http url')      newspan(cell_app, dat.app.url, 'data');
+            else if (dat.app.type == 'mail')          newspan(cell_app, dat.app.data, 'data');
+            else if (dat.app.type == 'other')          newspan(cell_app, dat.app.data, 'data');
+
+            // on data TD (last child of TR)
+            if (dat.app.type == 'http url') {
+                if (auto_open_img && detect_img(dat.app.url)) {
+                    url = 'http://'+dat.app.url;
+                    var newtab = window.open(url, '_blank');
+                }
+                cell_app.onmouseover = function(event){
+                    if (detect_img(dat.app.url) && mouse_tick_count++ < mouse_tick_max)
+                        show_img_box(dat.app.url, {x:event.pageX, y:event.pageY})
+                };
+                cell_app.onmouseout = function() {
+                    mouse_tick_count=0; img_box.innerHTML='';
+                    img_box.style.display='none';
+                };
+            }
+            cell_app.onclick=function(event){
+                if(event.altKey || event.ctrlKey) {
+                    var filterclass = this.classList[1];
+                    console.log('toggle: '+filterclass); // gets IP class (10_0_0_1) from class list
+                    toggleRowVisibility(filterclass);
+                }
+                else if (this.classList[1] == 'http_url') {
+                    url = 'http://'+this.querySelector('.data').innerHTML;
+                    window.open(url, '_blank');
+                }
+            };
+
+        }
+
+        return row;
+    }
+
+
+
+
+
+    //
+    // CHARTS
+    //
+    //
+    // geo location information is stored in local javascript cache and we pull
+    // it on every display:
+
+
+</script>
+<style>
+body {
+    margin:0; padding:0; border:0;
+    font-family: monospace;
+    /*font-family: Helvetica;*/
+    }
+td { padding-left: 0.2em; padding-right: 0.2em; white-space: nowrap;}
+td:nth-child(1) { text-align: right;}
+table{width:100%}
+#infobar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    opacity: 0.8;
+    padding: 0.2em;
+    padding-right: 0.5em;
+}
+#infobar.connected {
+    background-color: #efe; //green means we are conencted, red not
+}
+#infobar.disconnected {
+    background-color: #fcc; //green means we are conencted, red not
+}
+span {
+    padding-left:0.5em;
+    padding-right:0.5em;
+}
+.device {
+    color: red;
+}
+.name {
+    color: grey;
+}
+.ip {
+    font-weight: bold;
+}
+.ip {
+    font-weight: bold;
+}
+
+.data.http_url {
+    background-color:lightgreen;
+}
+.data.dns_request,
+.data.dns_response {
+    background-color:lightblue;
+}
+.data.mail {
+    background-color:orange;
+    color:orange;
+}
+.hidden {
+    visibility: none;
+}
+#user_id {
+    position: absolute;
+    z-index: 9998;
+    background-color: #ccc;
+    padding: 4px 8px 4px 8px;
+    display:none;
+}
+#img_box {
+    position: absolute;
+    z-index: 9998;
+    background-color: #ccc;
+    padding: 4px 8px 4px 8px;
+    display:none;
+}
+#img_box {
+    _width: 400px;
+    _height: 400px;
+    padding: 2em;
+}
+#img_box img {
+    /* width: 400px;
+    height: 400px; */
+    /* width: 150%; */
+}
+#container {
+    opacity: 0.9;
+    display: none;
+    position: fixed;
+    bottom: 30px;
+    left: 30px;
+    min-width: 710px;
+    height: 300px;
+    margin: 0 auto
+}
+#mapcontainer {
+    opacity: 0.9;
+    display: none;
+    position: fixed;
+    top: 60px;
+    left: 30px;
+    min-width: 710px;
+    height: 300px;
+    margin: 0 auto
+}
+</style>
+</head>
+<body><div id="user_id">&nbsp;</div><div id="img_box">&nbsp;</div>
+<div id="infobar" class="disconnected">
+    <!-- <input type=checkbox id="autoscroll" checked>autoscroll -->
+    <input type=checkbox id="shownames" onclick="toggle_names()" checked>names
+    <!-- <input type=checkbox onclick="auto_open_img=!auto_open_img">autoimg -->
+    <span id="packetcount">&nbsp;</span>
+</div>
+<br><br>
+<input type=text id=myip> (our ip to be ignored)<br>
+<input type=text id=gatewayip> (gateway ip to be told)<br>
+<input type=text id=ip_range_start> (ip scan range start)<br>
+<input type=text id=ip_range_end> (ip scan range end)<br>
+
+<table>
+    <tbody id='hosts'>
+    </tbody>
+</table>
+</body>
+</html>
