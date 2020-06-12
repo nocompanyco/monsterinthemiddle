@@ -1,5 +1,6 @@
 # monsterinthemiddle
 
+**Warning: Current code base may include various issues and is not intended for public use**
 
 ### Test - Binary
 Download from dist directory or releases page and execute as any normal app
