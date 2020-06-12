@@ -1,6 +1,8 @@
 oui.txt
 .capture.notinuse.delete.js
 .vscode-upload.json
+data/*
+package-lock.json
 # Logs
 logs
 *.log

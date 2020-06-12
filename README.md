@@ -25,12 +25,12 @@ For console version:
     npm install
 
     ON OSX:
-    npm run pack:mac
+    npm run dist:mac
 
     ON LINUX:
-    npm run pack:linux
+    npm run dist:linux
 
     ON WINDOWS:
-    npm run pack:windows
+    npm run dist:windows
 
 Find binary packages created in dist directory
