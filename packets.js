@@ -153,7 +153,7 @@ if (!isWin && process.getuid() == 0) {
 const util     = require('util');
 // Our own libs:
 const cache    = require('./cache.js'); // oui,geo,dns,etc caches
-const ip       = require('./ip.js')
+const nettools = require('./nettools.js')
 // 3rd party
 const DNS      = require("pcap/decode/dns"); // pcap@2.0.1 dns decoding requires
 const express  = require('express');
@@ -364,9 +364,9 @@ const parse_packet = function(packet, callback) {
 
     // IP's
     dat.sip      = packet.payload.payload.saddr.toString();
-    dat.siplocal = ip.is_local(dat.sip);
+    dat.siplocal = nettools.is_local(dat.sip);
     dat.dip      = packet.payload.payload.daddr.toString();
-    dat.diplocal = ip.is_local(dat.dip);
+    dat.diplocal = nettools.is_local(dat.dip);
     // used for cache key:
     var iplocal;
     if (dat.siplocal && dat.sip !== gatewayip)
@@ -379,11 +379,11 @@ const parse_packet = function(packet, callback) {
     dat.sname = cache.dns.ptr(dat.sip);
     dat.dname = cache.dns.ptr(dat.dip);
     // cleanup
-         if (ip.is_ip(dat.sname))  dat.sname = null;
+         if (nettools.is_ip(dat.sname))  dat.sname = null;
     else if (dat.sname.substr(-10) === '.1e100.net')   dat.sname = 'google.com'; // deal with google
     else                                               dat.sname = dat.sname.split('.').slice(-3).join('.'); //oo.aa.domain.com into aa.domain.com)
 
-         if (ip.is_ip(dat.dname))  dat.dname = null;
+         if (nettools.is_ip(dat.dname))  dat.dname = null;
     else if (dat.dname.substr(-10) === '.1e100.net')   dat.dname = 'google.com';
     else                                               dat.dname = dat.dname.split('.').slice(-3).join('.');
 
@@ -532,7 +532,7 @@ const parse_packet = function(packet, callback) {
     }
 
     // BROADCAST PACKET
-    else if (ip.is_broadcast(dat.sip) || ip.is_broadcast(dat.dip)) { // || packet.link.ip.tcp.sport === 443)) {
+    else if (nettools.is_broadcast(dat.sip) || nettools.is_broadcast(dat.dip)) { // || packet.link.ip.tcp.sport === 443)) {
         cache.new_port.ptr(iplocal, 'broadcast');
         var new_data = cache.new_data.ptr(iplocal, 'broadcast');
 

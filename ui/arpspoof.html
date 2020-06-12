@@ -79,20 +79,23 @@
         gatewayip: null,
         ip_range_start: null,
         ip_range_end: null,
-        myip: null
+        ourip: null,
+        scaninterval: 30000,
+        spoofinterval: 8000
     }
+    var server_status = {
+        scanloop_running: false,
+        spoofloop_running: false
+    }
+    var filter_ips = []
     function network_settings_update(settings) {
         network_settings = settings
         Object.keys(network_settings).forEach(function(key){
-            if (network_settings[key] && document.getElementById(key))
+            if (network_settings[key] && document.getElementById(key)) {
                 document.getElementById(key).value = network_settings[key]
+            }
         })
     }
-
-    function __trigger_test(str,data) { // just test sockets from console
-            console.log(str)
-            socket.emit(str, data)
-        }
 
 
 
@@ -104,6 +107,20 @@
 
         // if (document.getElementById('shownames').checked)
         //     show_hostnames = true;
+
+
+        // update network_settings on any change to fields
+        Object.keys(network_settings).forEach(function(key){
+            if (document.getElementById(key)) {
+                document.getElementById(key).onchange = function(e) {
+                    if (typeof network_settings[key] === 'number')
+                        network_settings[key] = parseFloat(e.target.value)
+                    else 
+                        network_settings[key] = e.target.value
+                }
+                document.getElementById(key).onblur = document.getElementById(key).onchange
+            }
+        });
 
 
         //
@@ -124,15 +141,87 @@
             }
         }, 1000);
 
-        socket.on('found_hosts', data => console.log('found_hosts',data));
-        socket.on('recent_hosts', data => console.log('recent_hosts',data));
+        socket.on('found_hosts', data => {
+            console.log('found_hosts', data)
+            var hosts = []
+            Object.keys(data).forEach(function(mac){
+                hosts.push({    mac : mac, 
+                                ip  : data[mac],
+                                name: null,
+                                spoof_enabled : true,
+                                is_recent     : false,
+                            })
+            })
+            updateHosts(hosts)
+        });
+        socket.on('recent_hosts', data => {
+            console.log('recent_hosts',data)
+            var hosts = []
+            Object.keys(data).forEach(function(mac){
+                // if host exists in table and user has expressly set it to disable
+                // then add it to a the filter_ips list and update the server
+                hosts.push({    mac : mac, 
+                                ip  : data[mac],
+                                name: null,
+                                spoof_enabled : true,
+                                is_recent     : true,
+                            })
+            })
+            updateHosts(hosts)
+
+        });
         socket.on('filter_ips', data => console.log('filter_ips',data));
-        socket.on('spoofloop_status', data => console.log('spoofloop_status',data));
 
         socket.on('network_settings', data => {
             console.log('network_settings',data)
             network_settings_update(data);
         });
+        socket.on('status', function(stat) {
+            // console.log('status',stat,typeof stat);
+            server_status = stat
+            Object.keys(stat).forEach(function(key) {
+                var elem = document.getElementById(key)
+                if (elem) {
+                    elem.innerHTML = stat[key]
+                    elem.className = stat[key]
+                }
+            })
+        });
+        setInterval(function() { socket.emit('get_status') }, 1000)
+        let names_waiting = false;
+        socket.on('names', names => { // {ip:name,...}
+            console.log('names', names)
+            names_waiting = false;
+            Object.keys(names).forEach(ip => {
+                if (names[ip]) {
+                    var elem = document.getElementById('name_'+ip.replace(/\./g,'_'))
+                    if (elem)
+                        elem.innerHTML = names[ip];
+                }
+            })
+        })
+        function get_names () {
+            var ips = []
+            Object.values(document.getElementsByClassName('name')).forEach(function(td,index,tds){
+                console.log(td.innerHTML)
+                // . is for one try, .. for two tries, ... for 3
+                if (td.innerHTML=='' || td.innerHTML=='.' || td.innerHTML=='..') {
+                    td.innerHTML += '.';
+                    ips.push(td.parentElement.querySelector('.ip').innerHTML)
+                }
+            })
+            if (ips.length) {
+                    socket.emit('get_names',ips);
+                    names_waiting = true;
+            }
+        }
+        setInterval(function() { 
+            if (server_status.scanloop_running &&
+                !names_waiting) get_names() 
+        }, 4000)
+
+
+
 
             // var dat = data.data;
 
@@ -145,6 +234,56 @@
             //     window.scrollTo(0, document.body.scrollHeight);
     }
 
+    function get_found_hosts () {
+        console.log('get_found_hosts')
+        socket.emit('get_found_hosts')
+    }
+    function get_recent_hosts () {
+        console.log('get_recent_hosts')
+        socket.emit('get_recent_hosts')
+    }
+    function get_filter_ips () {
+        console.log('get_filter_ips')
+        socket.emit('get_filter_ips')
+    }
+    function do_scan1 () {
+        let settings = network_settings
+        settings.filter_ips = filter_ips
+        console.log('do_scan1', settings)
+        socket.emit('do_scan1', settings)
+    }
+    function start_scanloop () {
+        let settings = network_settings
+        settings.filter_ips = filter_ips
+        console.log('start_scanloop', settings)
+        socket.emit('start_scanloop', settings)
+    }
+    function stop_scanloop () {
+        console.log('stop_scanloop')
+        socket.emit('stop_scanloop')
+    }
+    function start_spoofloop () {
+        let settings = network_settings
+        settings.filter_ips = filter_ips
+        console.log('start_spoofloop', settings)
+        socket.emit('start_spoofloop', settings)
+    }
+    function stop_spoofloop () {
+        console.log('stop_spoofloop')
+        socket.emit('stop_spoofloop')
+    }
+    function get_status () {
+        console.log('get_status')
+        socket.emit('get_status')
+    }
+    function set_spoof_hosts () {
+        console.log('set_spoof_hosts TODO')
+        socket.emit('set_spoof_hosts')
+    }
+    function set_filter_ips () {
+        console.log('set_filter_ips TODO')
+        socket.emit('set_filter_ips')
+    }
 
     // first time, qssumes clicked to have others other than keepclass hidden
     var hide_others = true;
@@ -167,112 +306,65 @@
         hide_others = !hide_others;
     }
 
-    // The UI Packet printing meat
-    function newRow(table, dat) {
-        var row = table.insertRow(-1);
-        // give row class 'http_url 10_0_0_1'
-        if (dat.app && dat.app.type) row.className = dat.app.type.replace(/ /g,'_'); // turns 'http url' into 'http_url'
-        if (dat.siplocal)            row.className += ' '+dat.sip.replace(/\./g,'_'); // turns 10.0.0.1 to 10_0_0_1
-        else if (dat.diplocal)       row.className += ' '+dat.dip.replace(/\./g,'_');
+    // Update or create host row
 
+    function updateHost(host) {
+        // host { ip, mac, name, is_recent, spoof_enabled }
+        let id = host.ip.replace(/\.|:/g,'_')
+        if (document.getElementById(id)) {
+            var row       = document.getElementById(id)
+            var spoof     = row.cells[0];
+            var ip        = row.cells[1];
+            var mac       = row.cells[2];
+            var is_recent = row.cells[3];
+            var name      = row.cells[4];
+        }
+        else {
+            var row       = table.insertRow(-1);
+            var spoof     = row.insertCell(-1);
+            var ip        = row.insertCell(-1);
+            var mac       = row.insertCell(-1);
+            var is_recent = row.insertCell(-1);
+            var name      = row.insertCell(-1);
 
-        var cell_src = row.insertCell(-1);
-        var divider  = row.insertCell(-1).innerHTML = '>>';
-        var cell_dst = row.insertCell(-1);
-        var cell_app = row.insertCell(-1);
+            is_recent.className = 'is_recent';
+            mac.className       = 'mac';
+            ip.className        = 'ip'
+            spoof.className     = 'spoof_enabled'
+            name.className      = 'name'
 
+            row.id       = id;
+            spoof.id     = 'spoof_'+id
+            name.id      = 'name_'+id
+            is_recent.id = 'is_recent_'+id
+            
+            ip.innerHTML = host.ip
+            mac.innerHTML = host.mac
+            name.innerHTML = host.name
+        }
+        // if (host.is_recent)
+        //     row.className += ' is_recent';
+        // else
+        //     row.className.replace(/is_recent */g,'').trim()
 
-        if (dat.siplocal && dat.sdevice) newspan(cell_src, dat.sdevice,   'device');
-        if (!dat.siplocal && dat.sgeo)   newspan(cell_src, dat.sgeo, 'geo');
-        // prefer mdns name
-        var sname;
-        if (dat.smdnsname)               sname = newspan(cell_src, dat.smdnsname, 'name');
-        else if (dat.sname)              sname = newspan(cell_src, dat.sname,     'name');
-        if (!show_hostnames)             sname.style.display = 'none';
+        spoof.innerHTML = host.spoof_enabled
+        is_recent.innerHTML = host.is_recent
 
-        var left_ip = newspan(cell_src, dat.sip, 'ip');
-        // Handle name resolution for IP
-        if (dat.siplocal) {
-            /*
-            left_ip.onmouseover = function(event){ // show user_id
-                if(mouse_tick_count++ < mouse_tick_max)
-                    show_user_id_from_ip(dat.sip, {x:event.pageX, y:event.pageY})
-            };
-            left_ip.onmouseout = function() {
-                mouse_tick_count=0;
-                xinnerText(user_id,'');
-                user_id.style.display='none';
-            };
-            */
-            //filter for IP (alt+click pr ctrl+click):
-            left_ip.onclick = function(event){
-                if(event.altKey || event.ctrlKey) {
-                    var filterclass = this.parentElement.parentElement.classList[1];
-                   console.log('toggle filter: '+filterclass); // gets IP class (10_0_0_1) from class list
-                   toggleRowVisibility(filterclass);
-                }
-            }
+        spoof.onclick = function(e) {
+            console.log('toggle spoof')
+            e.target.innerHTML = "a"
         }
 
-        var right_ip = newspan(cell_dst, dat.dip, 'ip')
-        // prefer mdns name
-        var dname;
-        if (dat.dmdnsname)               dname = newspan(cell_dst, dat.dmdnsname, 'name');
-        else if (dat.dname)              dname = newspan(cell_dst, dat.dname,     'name');
-        if (!show_hostnames)             dname.style.display = 'none';
-        if (!dat.diplocal && dat.dgeo)   newspan(cell_dst, dat.dgeo, 'geo');
-        if (dat.diplocal && dat.ddevice) newspan(cell_dst, dat.ddevice,   'device');
-
-        // geo cache for charts
-        if (dat.sgeo) geo_cache.hit(dat.sgeo);
-        if (dat.dgeo) geo_cache.hit(dat.dgeo);
-
-        // console.log(dat);
-        // console.log(dat.app.type ? true:false); console.log(dat.app);
-        if (dat.app.type) {
-
-            cell_app.className="data "+dat.app.type.replace(' ','_');
-            newspan(cell_app, dat.app.type.toUpperCase(), 'type');
-
-
-            // if (dat.app.type == 'https')  {}
-
-                 if (dat.app.type == 'dns request')   newspan(cell_app, dat.app.name, 'data');
-            else if (dat.app.type == 'dns response')  newspan(cell_app, dat.app.name+' = '+dat.app.ip, 'data');
-            else if (dat.app.type == 'http url')      newspan(cell_app, dat.app.url, 'data');
-            else if (dat.app.type == 'mail')          newspan(cell_app, dat.app.data, 'data');
-            else if (dat.app.type == 'other')          newspan(cell_app, dat.app.data, 'data');
-
-            // on data TD (last child of TR)
-            if (dat.app.type == 'http url') {
-                if (auto_open_img && detect_img(dat.app.url)) {
-                    url = 'http://'+dat.app.url;
-                    var newtab = window.open(url, '_blank');
-                }
-                cell_app.onmouseover = function(event){
-                    if (detect_img(dat.app.url) && mouse_tick_count++ < mouse_tick_max)
-                        show_img_box(dat.app.url, {x:event.pageX, y:event.pageY})
-                };
-                cell_app.onmouseout = function() {
-                    mouse_tick_count=0; img_box.innerHTML='';
-                    img_box.style.display='none';
-                };
-            }
-            cell_app.onclick=function(event){
-                if(event.altKey || event.ctrlKey) {
-                    var filterclass = this.classList[1];
-                    console.log('toggle: '+filterclass); // gets IP class (10_0_0_1) from class list
-                    toggleRowVisibility(filterclass);
-                }
-                else if (this.classList[1] == 'http_url') {
-                    url = 'http://'+this.querySelector('.data').innerHTML;
-                    window.open(url, '_blank');
-                }
-            };
-
+        is_recent.onclick = function(e) {
+            console.log('toggle recent')
         }
 
         return row;
+    }
+    function updateHosts(hosts, is_recent) {
+        hosts.forEach(function(host) {
+            updateHost(host)
+        })
     }
 
 
@@ -289,14 +381,28 @@
 
 </script>
 <style>
-body {
-    margin:0; padding:0; border:0;
-    font-family: monospace;
-    /*font-family: Helvetica;*/
+    * {  font-family: sans-serif;}
+body { font-size: 10.5pt; margin: 4% 10% 10% 10% ; background-color: #dee3de;}
+td, th {font-size: 9pt; }
+button { font-size: 1em; padding:0.5em 1em; }
+input { background-color: #fafafa }
+.help, .help a {color: #777;}
+#command { 
+    margin: 0.8em 0; font-size: 0.9em; font-family: "AtlasTypewriterRegular", "Andale Mono", "Consolas", "Lucida Console", "Menlo", "Luxi Mono", monospace;
+    margin-left: 2em; 
+    text-indent: -2em 
+}   
+h1,h2,h3,h4 {font-family: "AtlasTypewriterRegular", "Andale Mono", "Consolas", "Lucida Console", "Menlo", "Luxi Mono", monospace;}
+td {     vertical-align: top;
+padding-left: 0.4em; padding-right: 0.4em; white-space: nowrap;}
+/* td:nth-child(1) { text-align: right;} */
+table{min-width:300;}
+#host_list td,
+#host_list th { 
+    border: 1px solid black; 
+    font-family: "AtlasTypewriterRegular", "Andale Mono", "Consolas", "Lucida Console", "Menlo", "Luxi Mono", monospace;
     }
-td { padding-left: 0.2em; padding-right: 0.2em; white-space: nowrap;}
-td:nth-child(1) { text-align: right;}
-table{width:100%}
+input { font-family: monospace; font-size:8.5pt; }
 #infobar {
     position: fixed;
     top: 0;
@@ -305,10 +411,10 @@ table{width:100%}
     padding: 0.2em;
     padding-right: 0.5em;
 }
-#infobar.connected {
+#infobar.connected, .true {
     background-color: #efe; //green means we are conencted, red not
 }
-#infobar.disconnected {
+#infobar.disconnected, .false {
     background-color: #fcc; //green means we are conencted, red not
 }
 span {
@@ -319,91 +425,68 @@ span {
     color: red;
 }
 .name {
-    color: grey;
+    /* color: grey; */
+    /* font-size: 0.85em; */
 }
 .ip {
     font-weight: bold;
 }
 .ip {
     font-weight: bold;
+}
+.mac {
+    display: none;
 }
 
-.data.http_url {
-    background-color:lightgreen;
-}
-.data.dns_request,
-.data.dns_response {
-    background-color:lightblue;
-}
-.data.mail {
-    background-color:orange;
-    color:orange;
-}
 .hidden {
     visibility: none;
 }
-#user_id {
-    position: absolute;
-    z-index: 9998;
-    background-color: #ccc;
-    padding: 4px 8px 4px 8px;
-    display:none;
-}
-#img_box {
-    position: absolute;
-    z-index: 9998;
-    background-color: #ccc;
-    padding: 4px 8px 4px 8px;
-    display:none;
-}
-#img_box {
-    _width: 400px;
-    _height: 400px;
-    padding: 2em;
-}
-#img_box img {
-    /* width: 400px;
-    height: 400px; */
-    /* width: 150%; */
-}
-#container {
-    opacity: 0.9;
-    display: none;
-    position: fixed;
-    bottom: 30px;
-    left: 30px;
-    min-width: 710px;
-    height: 300px;
-    margin: 0 auto
-}
-#mapcontainer {
-    opacity: 0.9;
-    display: none;
-    position: fixed;
-    top: 60px;
-    left: 30px;
-    min-width: 710px;
-    height: 300px;
-    margin: 0 auto
-}
+.is_recent { display: none;}
+.spoof_enabled { display: none;}
 </style>
 </head>
-<body><div id="user_id">&nbsp;</div><div id="img_box">&nbsp;</div>
+<body>
 <div id="infobar" class="disconnected">
     <!-- <input type=checkbox id="autoscroll" checked>autoscroll -->
-    <input type=checkbox id="shownames" onclick="toggle_names()" checked>names
+    <!-- <input type=checkbox id="shownames" onclick="toggle_names()" checked> -->
     <!-- <input type=checkbox onclick="auto_open_img=!auto_open_img">autoimg -->
-    <span id="packetcount">&nbsp;</span>
+    <!-- <span id="packetcount">&nbsp;</span> -->
 </div>
-<br><br>
-<input type=text id=myip> (our ip to be ignored)<br>
-<input type=text id=gatewayip> (gateway ip to be told)<br>
-<input type=text id=ip_range_start> (ip scan range start)<br>
-<input type=text id=ip_range_end> (ip scan range end)<br>
+<br>
+<!-- <table>
+    <td> -->
+        <h3>Discovered Hosts</h3>
+        <table>
+            <tbody id='host_list'>
+                <tr><th class=spoof_enabled>MiTM</th>
+                    <th class=ip>IP</th>
+                    <th class=mac>Mac</th>
+                    <th class=is_recent>Recent</th>
+                    <th class=name>Name</th></tr>
+            </tbody>
+        </table>
+<!-- </td>
+<td> -->
+    <h3>Configure Scanner</h3>
+    <input type=text id=ourip> (our ip to be ignored)<br>
+    <input type=text id=ourmac> (our mac)<br>
+    <input type=text id=gatewayip> (gateway ip to be told)<br>
+    <input type=text id=ip_range_start> (ip scan range start)<br>
+    <input type=text id=ip_range_end> (ip scan range end)<br>
+    <input type=text id=scaninterval> (how often in ms to scan network for new hosts)<br>
+    <input type=text id=spoofinterval> (how often in ms to spoof hosts)<br>
+    <br>
+    <button onclick=start_scanloop()>Start</button>  
+    <button onclick=stop_scanloop()>Stop</button> Host Scanner, started <span id="scanloop_running">&nbsp;</span>
+    <!-- <button onclick=do_scan1()>Run Once</button><br><br> -->
+    <!-- <input type=checkbox id="shownames" onclick="toggle_names()" checked>MiTM enable newly found hosts<br> -->
 
-<table>
-    <tbody id='hosts'>
-    </tbody>
-</table>
+<br><br>
+
+ 
+<button onclick=start_spoofloop()>Start</button> 
+<button onclick=stop_spoofloop()>Stop</button> Arpspoof, started <span id="spoofloop_running">&nbsp;</span>
+
+<!-- </td></table> -->
 </body>
 </html>

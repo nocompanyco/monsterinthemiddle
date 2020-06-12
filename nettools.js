@@ -5,7 +5,7 @@ const multicastdns = require('multicast-dns');
 
 let mdnser; // <- initialized from mutlicast-dns on first query
 const mdnswait = 2000; // wait only this long for mdns response
-
+const arpwait = 10; // wait ms between trying each ip arp/ping
 DEBUG = false;
 
 
@@ -30,34 +30,33 @@ function scan(ipv4_start, ipv4_end, ipv4_filter, cb) {
         cb = ipv4_filter_optional
         ipv4_filter_optional = undefined
     }
-    let count = 0;
-    for (let i = start; i <= end; i++) {
+    function _recursive_check(i) {
         const ip = prefix+'.'+i;
         if (ipv4_filter && ipv4_filter.includes(ip)) {
             DEBUG && console.log(`filter out ${ip}`)
-            count += 1;
-            continue;
         }
-        //ping and if host alive get mac
-        DEBUG && console.log(`try ${ip}`)
-        arp.getMAC(ip, (err, mac) => {
-            count += 1;
-            // console.log(`tried ${count}: ${ip}`)
-            if (!err && mac && mac.split(':').length === 6)
-                exports.activehosts[mac] = ip;
-            else if (err) 
-                DEBUG && console.error(`${count}: ${ip}: error arp.getMAC:`,err);
-            else
-                DEBUG && console.error(`${count}: ${ip}: mac invalid arp.getMAC:`,mac);
-
-            if (count === (end-start)+1 && typeof cb === 'function') {
+        else {
+            DEBUG && console.log(`try ${ip}`)
+            arp.getMAC(ip, (err, mac) => {
+                // console.log(`tried ${i}: ${ip}`)
+                if (!err && mac && mac.split(':').length === 6)
+                    exports.activehosts[mac] = ip;
+                else if (err) 
+                    DEBUG && console.error(`${i}: ${ip}: error arp.getMAC:`,err);
+                else
+                    DEBUG && console.error(`${i}: ${ip}: mac invalid arp.getMAC:`,mac);    
+            });
+        }
+        if (i < end)
+            setTimeout(() => _recursive_check(i+1), arpwait);
+        else if (i == end && typeof cb === 'function') {
                 if (Object.keys(exports.activehosts).length > 0)
                     cb(exports.activehosts)
                 else
                     cb(null)
-            }
-        });
+        }
     }
+    _recursive_check(start);
 }
 
 
@@ -144,7 +143,7 @@ function names (ips, cb) {
             if (result)
                 names[ip] = result;
             else
-                names[ip] = undefined;
+                names[ip] = null;
             if (count === ips.length)
                 cb(names)
         })

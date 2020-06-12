@@ -5,11 +5,14 @@ const fork = require('child_process').fork;
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
-var settingsWindow  = null;
-var packetsWindow   = null;
-var devicesWindow   = null;
-var packetsProc     = null; // child fork handler for packets capture
-var devicesProc     = null; // child fork  handler for devices ui 
+var settingsWindow = null;
+var packetsWindow  = null;
+var devicesWindow  = null;
+var arpspoofWindow = null;
+var packetsProc    = null;  // child fork handler for packets capture
+var devicesProc    = null;  // child fork  handler for devices ui 
+var arpspoofProc   = null;
+var network_settings = null;
 
 let menuTemplate = [
 { label: '&File', submenu: [
@@ -21,11 +24,13 @@ let menuTemplate = [
     { role: 'close' },
     { role: 'quit' }
 ]},
-{ label: '&Capture', submenu: [
+{ label: '&MiTM', submenu: [
     { label: 'Show Devices', accelerator: 'CmdOrCtrl+D',
       click (item, win) { showDevices() } },
     { label: 'Show Packets', accelerator: 'CmdOrCtrl+P',
       click (item, win) { showPackets(); } },
+    { label: 'Arpspoof', accelerator: 'CmdOrCtrl+A',
+    click (item, win) { showArpspoof(); } },
 ]},
 { label: '&View', submenu: [
     { role: 'reload'}, 
@@ -130,9 +135,41 @@ function showDevices () {
   });
 }
 
+function showArpspoof () {
+  if (!arpspoofProc) {
+    var args = network_settings
+    arpspoofProc = fork(__dirname+'/arpspoof.js', ['--eth', args.eth, '--gateway', args.gateway, '--start','no']);
+  }
+
+  if (arpspoofWindow) {
+    arpspoofWindow.show();
+    return;
+  }
+  arpspoofWindow = new BrowserWindow({
+    width: 600, height: 650, show: true,
+    title: 'Arpsoof',
+    frame: true, //no removes all borders
+    webPreferences: {
+      nodeIntegration: true,
+    }
+
+  });
+  Menu.setApplicationMenu(menu);
+  // arpspoofWindow.webContents.openDevTools();
+
+  setTimeout(function(){
+    arpspoofWindow.loadURL('http://localhost:8083');
+    arpspoofWindow.show();
+  }, 2000);
+
+  arpspoofWindow.on('closed', function() {
+    arpspoofWindow = null;
+  });
+}
 
 ipcMain.on('start-live-capture', function(e, arg) {
     console.log('start-live-capture', arg);
+    network_settings = arg
     // if settings ui opened and settins changged, restart:
     var killwait = 0;
     if (packetsProc !== null) {
@@ -143,9 +180,14 @@ ipcMain.on('start-live-capture', function(e, arg) {
       devicesProc.kill('SIGINT');
       killwait = 1000;
     }
+    if (arpspoofProc !== null)  {
+      arpspoofProc.kill('SIGINT');
+      killwait = 1000;
+    }
+
     // wait at least one second for restart
     setTimeout(function(){
-        packetsProc = fork(__dirname+'/packets.js', [arg.eth, arg.filter, arg.gateway]);
+        packetsProc  = fork(__dirname+'/packets.js', [arg.eth, arg.filter, arg.gateway]);
         setTimeout(function(){
           devicesProc = fork(__dirname+'/devices.js');
           if (devicesWindow == null) {
@@ -163,8 +205,9 @@ ipcMain.on('start-load-capture', function(e, arg) {
 
 // Quit when all windows are closed.
 app.on('window-all-closed', function() {
-  if (packetsProc !== null) packetsProc.kill('SIGINT');
-  if (devicesProc !== null) devicesProc.kill('SIGINT');
+  if (packetsProc  !== null) packetsProc.kill('SIGINT');
+  if (devicesProc  !== null) devicesProc.kill('SIGINT');
+  if (arpspoofProc !== null) arpspoofProc.kill('SIGINT');
 // On OS X it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
   if (process.platform != 'darwin') {
