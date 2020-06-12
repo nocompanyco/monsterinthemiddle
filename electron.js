@@ -26,11 +26,11 @@ const menuTemplate = [
     { role: 'quit' },
 ]},
 { label: '&MiTM', submenu: [
-    { label: 'Show Devices', accelerator: 'CmdOrCtrl+D',
+    { label: 'Devices monitor', accelerator: 'CmdOrCtrl+D',
       click(item, win) {showDevices();} },
-    { label: 'Show Packets', accelerator: 'CmdOrCtrl+P',
+    { label: 'Packets monitor', accelerator: 'CmdOrCtrl+P',
       click(item, win) {showPackets();} },
-    { label: 'Arpspoof', accelerator: 'CmdOrCtrl+A',
+    { label: 'Network scan and control', accelerator: 'CmdOrCtrl+A',
     click(item, win) {showArpspoof();} },
 ]},
 { label: '&View', submenu: [
@@ -90,7 +90,7 @@ function showPackets() {
     frame: true, // no removes all borders
     show: true,
     x: 100, y: 100,
-    title: 'Packets',
+    title: 'Packets monitor',
     webPreferences: {
       nodeIntegration: true,
     },
@@ -116,7 +116,7 @@ function showDevices() {
   }
   devicesWindow = new BrowserWindow({
     width: 800, height: 600,
-    title: 'Devices',
+    title: 'Devices monitor',
     frame: true, // no removes all borders
     show: true,
     webPreferences: {
@@ -151,7 +151,7 @@ function showArpspoof() {
   }
   arpspoofWindow = new BrowserWindow({
     width: 600, height: 650,
-    title: 'Arpsoof',
+    title: 'Network scan and control',
     frame: true, // no removes all borders
     show: true,
     webPreferences: {
