@@ -62,7 +62,7 @@ function showSettings() {
     return;
   }
   settingsWindow = new BrowserWindow({
-    width: 650, height: 500,
+    width: 650, height: 580,
     frame: false,
     titleBarStyle: 'hidden',
     title: 'Settings',

@@ -59,7 +59,7 @@ var fetch = function(cb) {
     // handle cases where ieee site offline or network unavailble by loading to tmp
     debug && cb(null, "begin downloading "+OUI_URL+". To avoid, stop process and touch "+OUI_TXT);
 
-    var f = fs.createWriteStream(OUI_TXT+'.tmp');E
+    var f = fs.createWriteStream(OUI_TXT+'.tmp');
     f.on('finish', function(){
         debug && cb(null, "finished downloading "+OUI_URL);
         fs.rename(OUI_TXT+'.tmp', OUI_TXT, function() {
