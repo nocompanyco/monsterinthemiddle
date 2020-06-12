@@ -34,14 +34,14 @@ function settings_save(){ fs.writeFileSync(settingsfile, JSON.stringify(settings
 
 var interfaces, defaultInterface;
 
-var saveBtn, interfacesSelect;  
+var saveBtn, interfacesSelect, eth, filter, gateway;  
 
 
 ready(function() {
 
-    var eth     = document.querySelector('input[name="eth"]');
-    var filter  = document.querySelector('input[name="filter"]');
-    var gateway = document.querySelector('input[name="gateway"]');
+    eth     = document.querySelector('input[name="eth"]');
+    filter  = document.querySelector('input[name="filter"]');
+    gateway = document.querySelector('input[name="gateway"]');
     var capture_file = null;
 
     eth.value     = 'eth'     in settings ? settings.eth     : '';
@@ -50,13 +50,14 @@ ready(function() {
 
     start_live_btn = document.querySelector('#start_live_btn');
     start_live_btn.addEventListener('click', function () {
-        console.log("saving settings");
+        console.log("saving settings", eth.value, filter.value, gateway.value);
         settings.eth = eth.value;
         settings.filter = filter.value;
         settings.gateway = gateway.value;
         try {
             settings_save();    
         } catch (e) {
+            console.error("settings_save error:", e);
             // this can happen when proc run first with normal user
         }
         
@@ -108,21 +109,25 @@ ready(function() {
         interfaces       = [];
         osEths           = os.networkInterfaces();
         defaultInterface = Object.keys(routes)[0];
-
-        for (k in osEths) {
+        for (ethName in osEths) {
             // TODO: assuming IPv4 always first
+            var ip = osEths[ethName][0]['address'];
+            var gw = ethName in routes ? routes[ethName][0]['address'] : null
             interfaces.push({
-                name:    k,
-                ip:      osEths[k][0]['address'],
-                default: k === defaultInterface ? true : false,
-                gateway: k in routes            ? routes[k][0]['address'] : null
+                name:    ethName,
+                ip:      ip,
+                default: ethName === defaultInterface ? true : false,
+                gateway: gw
             });
             var e = document.createElement('option');
-            e.value = k;
-            e.innerHTML = k+' ('+osEths[k][0]['address']+')';
-            if (k === defaultInterface) {
+            e.value = ethName;
+            e.innerHTML = ethName+' ('+ip+')';
+            if (ethName === defaultInterface) {
                 e.checked = true;
                 e.selected = true;
+                // update global
+                document.querySelector('input[name="eth"]').value = ethName;
+                document.querySelector('input[name="gateway"]').value = gw;
             }
             interfacesSelect.appendChild(e);
         }
