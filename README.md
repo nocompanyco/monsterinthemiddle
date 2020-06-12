@@ -1,5 +1,7 @@
 # monsterinthemiddle
 
+This file is temporary.
+
 **Warning: Current code base may include various issues and is not intended for public use**
 
 ### Test - Binary
