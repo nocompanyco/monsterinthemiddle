@@ -1,0 +1,42 @@
+{
+    "extends": [
+      "eslint:recommended",
+      "google",
+      "plugin:eslint-comments/recommended"
+    ],
+    "env": {
+      "node": true,
+      "commonjs": true
+  },
+    "parserOptions": {
+      "ecmaVersion": 2017
+    },
+    "settings": {
+      "import/resolver": "node"
+    },
+    "rules": {
+      "indent": [2, 2, {"SwitchCase": 0}],
+      "no-console": 0,
+      "no-process-env": 0,
+      "no-underscore-dangle": 1,
+      "no-var": 2,
+      "camelcase": "off",
+      "max-len": "off",
+      "require-jsdoc" : 0,
+      "no-multi-spaces": ["error", { "exceptions": { "VariableDeclarator": true } }]
+    },
+    "overrides": [
+      {
+        "files": [
+          "arpspoof.js",
+          "cache.js",
+          "cache_oui.js",
+          "devices.js",
+          "electron.js",
+          "nettoos.js"
+        ]
+      }
+    ]
+
+  }
+  

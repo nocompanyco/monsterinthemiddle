@@ -259,7 +259,6 @@ app.use('/ui', express.static(__dirname + '/ui'));
 
 
 
-
 /*
  * 
  * PARSE METHODS : app layer detect

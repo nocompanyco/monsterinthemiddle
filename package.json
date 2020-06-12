@@ -20,7 +20,9 @@
     "dist:mac": "electron-builder --mac",
     "dist:windows": "electron-builder --win --x64 --ia32",
     "dist:linux": "electron-builder --linux",
-    "dist:linuxwindows": "WINEPREFIX=~/.win32 WINEARCH=win32 electron-builder --win --x64 --ia32 --publish=never"
+    "dist:linuxwindows": "WINEPREFIX=~/.win32 WINEARCH=win32 electron-builder --win --x64 --ia32 --publish=never",
+    "lint:js": "eslint --ignore-path .gitignore --ignore-pattern node_modules --ext .js .",
+    "lint:js-quiet": "eslint --ignore-path .gitignore --ignore-pattern node_modules --ext .js . --quiet"
   },
   "postinstall": "electron-builder install-app-deps",
   "build": {
@@ -71,7 +73,10 @@
   "devDependencies": {
     "electron": "^9.0.0",
     "electron-builder": "^22.7.0",
-    "electron-rebuild": "^1.11.0"
+    "electron-rebuild": "^1.11.0",
+    "eslint": "^7.2.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-plugin-eslint-comments": "^3.2.0"
   },
   "private": true
 }
