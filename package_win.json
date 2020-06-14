@@ -1,0 +1,78 @@
+{
+  "name": "MonsterInTheMiddle",
+  "version": "0.1.0",
+  "description": "",
+  "author": "Nathan Fain <nathan@nocompany.co>",
+  "homepage": "https://github.com/nocompanyco/monsterinthemiddle",
+  "main": "electron.js",
+  "scripts": {
+    "start_electron": "electron electron.js",
+    "start_node": "node packets.js",
+    "rebuild_electron": "electron-rebuild -f -w .",
+    "rebuild_node": "npm rebuild .",
+    "pack": "electron-builder --dir",
+    "dist:all": "dist:windows dist:mac dist:linux",
+    "dist:mac": "electron-builder --mac",
+    "dist:windows": "electron-builder --win --x64 --ia32",
+    "dist:linux": "electron-builder --linux",
+    "dist:linuxwindows": "WINEPREFIX=~/.win32 WINEARCH=win32 electron-builder --win --x64 --ia32 --publish=never",
+    "lint:js": "eslint --ignore-path .gitignore --ignore-pattern node_modules --ext .js .",
+    "lint:js-quiet": "eslint --ignore-path .gitignore --ignore-pattern node_modules --ext .js . --quiet"
+  },
+  "postinstall": "electron-builder install-app-deps",
+  "build": {
+    "appId": "org.counterpart.monsterinthemiddle",
+    "productName": "monsterinthemiddle",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "mac": {
+      "category": "your.app.category.type",
+      "target": [
+        "zip"
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "type": "development"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "allowElevation": true,
+      "oneClick": false,
+      "perMachine": true
+    },
+    "linux": {
+      "target": [
+        "deb",
+        "apk",
+        "tar.gz"
+      ]
+    }
+  },
+  "dependencies": {
+    "async": "^3.2.0",
+    "cap": "^0.2.1",
+    "default-network": "^0.2.0",
+    "express": "4.17.1",
+    "geolite2-redist": "^1.0.7",
+    "maxmind": "4.1.2",
+    "multicast-dns": "^7.2.2",
+    "node-arp": "^1.0.6",
+    "pcap": "^3.1.0",
+    "socket.io": "2.3.0",
+    "tldjs": "1.5.2",
+    "windows-build-tools": "^5.2.2"
+  },
+  "devDependencies": {
+    "electron": "^9.0.0",
+    "electron-builder": "^22.7.0",
+    "electron-rebuild": "^1.11.0",
+    "eslint": "^7.2.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-plugin-eslint-comments": "^3.2.0"
+  },
+  "private": true
+}
