@@ -98,6 +98,48 @@ const gatewayip    = process.argv[4];
 /*  END  */
 
 
+/*
+ * List network interfaces
+ * useful here so user can figure out their interface
+ */
+
+console.log('\nNetwork interfaces:');
+let cap;
+let windows_devicename, windows_netinterface;
+if (isWin) {
+    cap = require('cap');
+}
+// os.networkInterfaces()
+// linux:   {'wlan0': [{address:...},{}], {'eth0'...}}
+// osx:     {'en1':   [{address:...},{}], {'en0'...}}
+// windows: {'WLAN':  [{address:...},{}], {'Ethernet Interface 1'...}}
+// NOTE: on windows cap is used and it requires different names
+// get that name using an address from found interface
+Object.entries(require('os').networkInterfaces()).forEach(entry => {
+    let devicename = entry[0]
+    if (isWin && entry[1].length > 0)
+        windows_devicename = cap.findDevice(entry[1][0].address)
+
+    if (netinterface === devicename) {
+        console.log(`${devicename} <--- chosen`);
+        if (isWin)
+            windows_netinterface = windows_devicename
+    }
+    else {
+        console.log(`${devicename}`);
+    }
+    if (isWin)
+        console.log(`${windows_devicename} (windows name)`)
+
+    if (entry[1].length > 0) {
+        entry[1].forEach(address => console.log(` ${address.address} / ${address.netmask}`) );
+    }
+    else {
+        console.log(' no address\n');
+    }
+});
+console.log("");
+
 
 /*
  * 
@@ -108,18 +150,18 @@ const gatewayip    = process.argv[4];
  */
 // Try to open, if no perms ask user to change permissions
 //              if root, claim interface and then downgrade (to uid)
-const pcap = require("pcap");
-var pcap_session, cap_session, cap_linktype;
+let pcap, pcap_session, pcap_decode, cap_session, cap_linktype;
 try {
     // on windows use cap to get packet (still decoded by pcap)
     if (isWin) {
-        const cap = require('cap');
-        var cap_session = new cap.Cap();
+        cap_session = new cap.Cap();
         var buffer = Buffer.alloc(65535);
-        cap_linktype = cap_session.open(netinterface, filter, 10 * 1024 * 1024, buffer);
+        cap_linktype = cap_session.open(windows_netinterface, filter, 10 * 1024 * 1024, buffer);
         console.log('linkType',cap_linktype)
+        pcap_decode = require('pcap/decode').decode
     }
     else {
+        const pcap = require("pcap");
         pcap_session = pcap.createSession(netinterface, filter);
     }
 } catch (e) {
@@ -218,23 +260,6 @@ stdin.on( 'data', function( key ){
     console.log(util.inspect(key,{depth: null})); // use to see key
   }
 });
-
-console.log('\nNetwork interfaces:');
-// linux:   {'wlan0': [{address:...},{}], {'eth0'...}}
-// osx:     {'en1':   [{address:...},{}], {'en0'...}}
-// windows: {'WLAN':  [{address:...},{}], {'Ethernet Interface 1'...}}
-Object.entries(require('os').networkInterfaces()).forEach(entry => {
-    let devicename = entry[0]
-    if (netinterface === devicename)
-        console.log(`${devicename} <--- chosen`);
-    else
-        console.log(`${devicename}`);
-    if (entry[1].length > 0)
-        entry[1].forEach(address => console.log(` ${address.address} / ${address.netmask}`) );
-    else
-        console.log(' no address\n');
-});
-console.log("");
 
 /*  END  */
 
@@ -660,7 +685,10 @@ else {
 
 function process_send_raw_packet(raw_packet) {
     try {
-        var packet = pcap.decode.packet(raw_packet);
+        if (isWin)
+            var packet = pcap_decode.packet(raw_packet);
+        else
+            var packet = pcap.decode.packet(raw_packet);
     } catch(err) {
         dumpError(err);
         return null;
