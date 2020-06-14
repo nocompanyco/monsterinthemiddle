@@ -685,10 +685,7 @@ else {
 
 function process_send_raw_packet(raw_packet) {
     try {
-        if (isWin)
-            var packet = pcap_decode.packet(raw_packet);
-        else
-            var packet = pcap_decode.packet(raw_packet);
+        var packet = pcap_decode.packet(raw_packet);
     } catch(err) {
         dumpError(err);
         return null;
