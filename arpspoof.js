@@ -1,6 +1,6 @@
 // arp spoofing and network scan engine
 //
-// localhost:8082
+// localhost:8083
 //
 // TODO:
 // * respond to ARP requests. Currently just spaming with arp poison packets
@@ -53,6 +53,7 @@ if (process.argv.length < 4) {
   console.error('  <our_macaddr>     determined from ip of eth if not defined');
   console.error('  <ip_range_start>  determined from our_ip if not defined');
   console.error('  <ip_range_end>    determined from our_ip if not defined');
+  console.error('  --start_spoof yes  add to start spoofing found_hosts from console');
   console.error('  --start no        init pcap but wait for webui to start');
   process.exit(1);
 }
@@ -78,6 +79,7 @@ let ip_range_start = args['ip-range-start'] || null;
 let ip_range_end = args['ip-range-end'] || null;
 let ourip = args['our-ip'] || null;
 const start_now = args['start'] && args['start'] === 'no' ? false : true;
+const start_spoof = args['startspoof'] && args['startspoof'] === 'yes' ? true : false;
 
 /*
  *
@@ -132,6 +134,7 @@ if (netinterface) {
   console.log(`   our mac : '${ourmac}'`);
   console.log(`gateway ip : '${gatewayip}'`);
   console.log(` start now : '${start_now}'`);
+  console.log(` spoof now : '${start_spoof}'`);
 } else {
   console.error('! Could not find requested interface:',
     requestednetinterface);
@@ -155,8 +158,8 @@ if (isLinux || isOSX) {
     require('fs').stat(__filename, function(err, s) {
       console.log('Downgrade permissions: change process uid/gid found on file:\n',
         __filename, `\nowner/group: ${s.uid}/${s.gid}`);
-      process.setgid(s.gid);
-      process.setuid(s.uid);
+      // process.setgid(s.gid);
+      // process.setuid(s.uid);
     });
   }
 }
@@ -326,15 +329,30 @@ if (start_now && gatewayip && ip_range_start && ip_range_end && ourmac && ourip 
     function(callback) {
       // run scan once first
       //  pass through call back so we continue to next after
-      scan1(ip_range_start, ip_range_end, (ret) => {
-        callback(null);
+      scan1(ip_range_start, ip_range_end, ret => {
+        console.log('scan1',ret);
+        callback(ret);
       });
+    },
+    function(callback) {
+      console.log('found_hosts',found_hosts)
+    },
+    function(callback) {
       // start delayed looper
-      scanloop(ip_range_start, ip_range_end, scaninterval);
+      scanloop(ip_range_start, ip_range_end, scaninterval, ret => {
+        console.log('scanloop',ret);
+      });
+      callback(null);
     },
     function(callback) {
       // spoof found_ip's which is updated routinely by scanloop
-      spoofloop(ourmac, ourip, gatewayip, found_hosts, spoofinterval);
+      if (start_spoof) {
+        console.log('starting spoofloop()');
+        spoofloop(ourmac, ourip, gatewayip, found_hosts, spoofinterval);
+      }
+      else {
+        console.log('--startspoof yes not set, will not start spoofloop()')
+      }
     },
     // OLDER SIMPLER TEST ROUTINES:
     // function (callback) {
