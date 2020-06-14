@@ -19,7 +19,7 @@ const tld      = require('tldjs');
 
 const VERBOSE_DEBUG = false;
 
-const LOAD_FROM_FILE = true;
+const LOAD_FROM_FILE = false;
 const PROCESS_EXIT_WAIT = 1500; // need to wait on exit so file saves complete
 const PACKET_SERVER = 'http://localhost:8080'; // where we get packets from
 const PUSH_INTERVAL = 6000; // how often do we check for and send new data
@@ -33,12 +33,12 @@ const ICON_DIR = __dirname + '/ui/icons'; // site icons. device icons manually i
 
 const IMAGES_PER_TARGET = 20;
 const PUSH_NET_GRAPH = false; // if set, we push updates. otherwise expect client to pull only
-const FILTER_DATA_TYPES = false; // if false all ports and data types logged. snifferjs could apply seperately
+const FILTER_DATA_TYPES = false; // if false all ports and data types logged.  could apply seperately
 
 if (process.argv[2] == '--help') {
     console.error("\nExample use: ");
     console.error('  sudo node devices.js [<capture_server:port>]"');
-    console.error('  default seerver:port http://localhost:8080');
+    console.error('  default server:port http://localhost:8080');
     process.exit(1);
 }
 

@@ -23,7 +23,6 @@ Where we are trying to get to:
 - electron.js 
    run gui which user can use to execute other
 
-For now though we will use much of the existin snifferjs
 
 */
 
@@ -44,7 +43,9 @@ const MAIL_ONLY_LOGIN      = false; //false to show all unencrypted mail packets
 const MAIL_TLS_AS_MAILS    = true; // count plain mail with starttls count as encrypted
 const MAIL_CONVERT_BASE64  = true; // check logins with base64 user/pass
 const PROCESS_EXIT_WAIT    = 1500; // need to wait on exit so file saves complete
-const PACKETS_CACHE        = true; // if true, parsed packets stored in memory object and forward to new clients 
+const PACKETS_CACHE        = true; // if true, parsed packets saved. useful for client reload 
+const PACKETS_CACHE_SAVE   = false; // Save packets_cache on close
+const PACKETS_CACHE_LOAD   = false; // Load packets_cache from file on start
 const MAKE_STATE_CHANGE_ON_HIDDEN_OTHER = false; // set to true to cause any hidden packet to reset new data counters
 const SHOW_ANY_TCP_UDP = false; // show OTHER category
 /*  END  */
@@ -123,9 +124,15 @@ try {
     }
 } catch (e) {
     console.error(e);
-    console.log("\nConsider running snifferjs as root or give yourself permission to monitor network interface:");
-    if (isLinux) console.log(`\nsudo setcap cap_net_raw,cap_net_admin=eip ${process.argv[0]}\n`);
-    if (isOSX)   console.log(`\nuse ChmodBPF to give permissions to ${process.argv[0]}\n`);
+    console.log("\nConsider running as root or give yourself permission to monitor network interface:");
+    if (isLinux) {
+        console.log(`\nsudo setcap cap_net_raw,cap_net_admin=eip ${process.argv[0]}`);
+        console.log(`echo '${__dirname}/node_modules/electron/dist' | sudo tee  /etc/ld.so.conf.d/monsterinthemiddle.conf`);
+        console.log(`sudo ldconfig\n`);
+    }
+    if (isOSX)   
+        console.log(`\nuse ChmodBPF to give permissions to ${process.argv[0]}\n`);
+    console.log('process.argv:',process.argv)
     setTimeout(function(){process.exit()}, PROCESS_EXIT_WAIT);
 }
 // dowgrade permissions:
@@ -621,6 +628,10 @@ let packets_cache = [];
 const packets_cache_file = __dirname+'/data/save_packets.json';
 const fs = require('fs');
 function packets_cache_save() {
+    if (!PACKETS_CACHE_SAVE) {
+        console.log('PACKETS_CACHE_SAVE=false, skipping cache save');
+        return;
+    }
     var string = JSON.stringify(packets_cache, null, 4);
     if (string.length <= 3) // empty files cause issues on load via require()
         return
@@ -632,7 +643,7 @@ function packets_cache_save() {
             console.log('saved '+packets_cache_file);
     });
 }
-if (PACKETS_CACHE) {
+if (PACKETS_CACHE_LOAD) {
     fs.exists(packets_cache_file, function(exists) {
         if (exists) {
             console.log('loading '+packets_cache_file);
@@ -642,6 +653,9 @@ if (PACKETS_CACHE) {
         }
     });
 
+}
+else {
+    console.log('PACKETS_CACHE_LOAD=false, skipping cache load');
 }
 
 function process_send_raw_packet(raw_packet) {
