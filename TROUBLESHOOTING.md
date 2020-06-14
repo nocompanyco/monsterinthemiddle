@@ -66,3 +66,34 @@ Downloading MaxMind databases from mirror...
 git clone https://github.com/node-pcap/node_pcap.git node_modules/pcap
 
 this has to be run after any npm install
+
+
+### Windows Electron Rebuild error
+
+```
+C:\Users\compa\Desktop\monsterinthemiddle>node_modules\.bin\electron-rebuild cap
+× Rebuild Failed
+
+An unhandled error occurred inside electron-rebuild
+gyp info it worked if it ends with ok
+gyp info using node-gyp@6.1.0
+gyp info using node@13.11.0 | win32 | x64
+gyp ERR! clean error
+gyp ERR! stack Error: EPERM: operation not permitted, unlink 'C:\Users\compa\Desktop\monsterinthemiddle\node_modules\cap\build\Release\cap.node'
+gyp ERR! System Windows_NT 10.0.18363
+gyp ERR! command "C:\\Program Files\\nodejs\\node.exe" "C:\\Users\\compa\\Desktop\\monsterinthemiddle\\node_modules\\node-gyp\\bin\\node-gyp.js" "rebuild" "--target=9.0.3" "--arch=x64" "--dist-url=https://www.electronjs.org/headers" "--build-from-source"
+gyp ERR! cwd C:\Users\compa\Desktop\monsterinthemiddle\node_modules\cap
+gyp ERR! node -v v13.11.0
+gyp ERR! node-gyp -v v6.1.0
+gyp ERR! not ok
+```
+
+run ` powershell Set-ExecutionPolicy RemoteSigned` in admin console
+
+####  EPERM: operation not permitted, unlink
+
+tried `npm run start_electron` which runs the same command but perhaps prepares the env better for windows?
+
+##### Windows Syntax Error Microsoft JSCript compilation error
+https://www.reddit.com/r/electronjs/comments/f1wc5q/microsoft_jscript_compilation_error_when_trying/
+Suggests probably a script error somewhere. However I found the solution was to reinstall electron (rm node_modules). Test this with mitm_tests\5_instsall_electron hello world test

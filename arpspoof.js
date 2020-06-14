@@ -53,7 +53,7 @@ if (process.argv.length < 4) {
   console.error('  <our_macaddr>     determined from ip of eth if not defined');
   console.error('  <ip_range_start>  determined from our_ip if not defined');
   console.error('  <ip_range_end>    determined from our_ip if not defined');
-  console.error('  --start_spoof yes  add to start spoofing found_hosts from console');
+  console.error('  --start_spoof yes add to start spoofing found_hosts from console');
   console.error('  --start no        init pcap but wait for webui to start');
   process.exit(1);
 }
@@ -73,13 +73,13 @@ for (let i=2; i<process.argv.length;) {
 // Assign arguments if available
 const requestednetinterface = args['eth'] || null;
 const gatewayip = args['gateway'] || null; // TODO: could replace this with the npm default-route
-let netinterface;
 let ourmac;
 let ip_range_start = args['ip-range-start'] || null;
 let ip_range_end = args['ip-range-end'] || null;
 let ourip = args['our-ip'] || null;
 const start_now = args['start'] && args['start'] === 'no' ? false : true;
 const start_spoof = args['startspoof'] && args['startspoof'] === 'yes' ? true : false;
+let netinterface, windows_netinterface, cap;
 
 /*
  *
@@ -92,6 +92,8 @@ const start_spoof = args['startspoof'] && args['startspoof'] === 'yes' ? true : 
 // Our own libs (that do not include 3rd parties):
 // 3rd party (or our libs that include 3rd party)
 const nettools = require('./nettools.js'); // win/lnx/osx uses `ping` and `arp`.
+if (isWin)
+  cap = require('cap');
 /*  END  */
 
 
@@ -108,12 +110,18 @@ Object.entries(require('os').networkInterfaces()).forEach((entry) => {
     console.log(`${devicename}`);
   }
   if (entry[1].length > 0) {
-    if (!ourip && netinterface === devicename) {// assume first addr is ours
-      ourip = entry[1][0].address;
-      ourmac = entry[1][0].mac;
-    }
     entry[1].forEach((address) => {
       console.log(` ${address.address} / ${address.netmask}`);
+      if (!ourip && netinterface === devicename && address.family === 'IPv4') {
+        ourip = address.address
+        ourmac = address.mac;
+        // determine cap compatible windows device name
+        if (isWin) {
+          windows_netinterface = cap.findDevice(ourip)
+          console.log(` ${windows_netinterface} (windows device name)`)
+        }
+
+      }
     });
   } else {
     console.log(' no address\n');
@@ -300,10 +308,9 @@ function spoofstop() {
 
 let cap_session;
 if (isWin) {
-  const cap = require('cap');
   cap_session = new cap.Cap();
   const buffer = Buffer.alloc(65535);
-  cap_session.open(netinterface, 'arp', 10 * 1024 * 1024, buffer);
+  cap_session.open(windows_netinterface, 'arp', 10 * 1024 * 1024, buffer);
 }
 // Linux/OSX: pcap_session was setup earlier in scrip while we still had root permissions
 // fyi cap/windows does not need root perms
