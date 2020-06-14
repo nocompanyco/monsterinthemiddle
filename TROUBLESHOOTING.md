@@ -97,3 +97,26 @@ tried `npm run start_electron` which runs the same command but perhaps prepares 
 ##### Windows Syntax Error Microsoft JSCript compilation error
 https://www.reddit.com/r/electronjs/comments/f1wc5q/microsoft_jscript_compilation_error_when_trying/
 Suggests probably a script error somewhere. However I found the solution was to reinstall electron (rm node_modules). Test this with mitm_tests\5_instsall_electron hello world test
+
+### Windows build tools index.js module not found
+
+```
+error C:\users\compa\Desktop\monsterinthemiddle\node_modules\windows-build-tools: Command failed.
+Exit code: 1
+Command: node ./dist/index.js
+Arguments:
+Directory: C:\users\compa\Desktop\monsterinthemiddle\node_modules\windows-build-tools
+Output:
+internal/modules/cjs/loader.js:979
+  throw err;
+  ^
+
+Error: Cannot find module 'C:\users\compa\Desktop\monsterinthemiddle\node_modules\windows-build-tools\dist\index.js'
+    at Function.Module._resolveFilename (internal/modules/cjs/loader.js:976:15)
+    at Function.Module._load (internal/modules/cjs/loader.js:859:27)
+    at Function.executeUserEntryPoint [as runMain] (internal/modules/run_main.js:71:12)
+    at internal/main/run_main_module.js:17:47 {
+```
+
+trying `npm install --global windows-build-toos@4.0.0`
+yeah well after doing that even cap will not install in this project nor in 2_ test
