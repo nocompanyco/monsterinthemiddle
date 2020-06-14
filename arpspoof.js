@@ -162,7 +162,7 @@ if (isLinux || isOSX) {
     process.exit(1);
   }
   // dowgrade permissions:
-  if (process.getuid() == 0) {
+  if (process.getuid && process.getuid() == 0) {
     require('fs').stat(__filename, function(err, s) {
       console.log('Downgrade permissions: change process uid/gid found on file:\n',
         __filename, `\nowner/group: ${s.uid}/${s.gid}`);
