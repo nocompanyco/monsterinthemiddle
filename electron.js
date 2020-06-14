@@ -30,7 +30,7 @@ const menuTemplate = [
       click(item, win) {showDevices();} },
     { label: 'Packets monitor', accelerator: 'CmdOrCtrl+P',
       click(item, win) {showPackets();} },
-    { label: 'Network scan and control', accelerator: 'CmdOrCtrl+A',
+    { label: 'Network scan and control', accelerator: 'CmdOrCtrl+N',
     click(item, win) {showArpspoof();} },
 ]},
 { label: '&View', submenu: [
@@ -70,8 +70,10 @@ function showSettings() {
       nodeIntegration: true,
       // enableRemoteModule: true
     },
+    // icon: __dirname + '/build/icon.png'
   });
   Menu.setApplicationMenu(menu);
+
 
   settingsWindow.loadURL('file://' + __dirname + '/ui/settings.html');
   // settingsWindow.webContents.openDevTools();
@@ -94,6 +96,7 @@ function showPackets() {
     webPreferences: {
       nodeIntegration: true,
     },
+    // icon: __dirname + '/build/icon.png'
   });
   Menu.setApplicationMenu(menu);
   // packetsWindow.setMenu(null);
@@ -123,7 +126,7 @@ function showDevices() {
       nodeIntegration: true,
       enableRemoteModule: true,
     },
-
+    // icon: __dirname + '/build/icon.png'
   });
   Menu.setApplicationMenu(menu);
   // devicesWindow.webContents.openDevTools();
@@ -157,7 +160,7 @@ function showArpspoof() {
     webPreferences: {
       nodeIntegration: true,
     },
-
+    // icon: __dirname + '/build/icon.png'
   });
   Menu.setApplicationMenu(menu);
   // arpspoofWindow.webContents.openDevTools();

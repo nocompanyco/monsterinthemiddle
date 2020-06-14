@@ -203,7 +203,6 @@
         function get_names () {
             var ips = []
             Object.values(document.getElementsByClassName('name')).forEach(function(td,index,tds){
-                console.log(td.innerHTML)
                 // . is for one try, .. for two tries, ... for 3
                 if (td.innerHTML=='' || td.innerHTML=='.' || td.innerHTML=='..') {
                     td.innerHTML += '.';

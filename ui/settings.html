@@ -146,9 +146,10 @@ ready(function() {
 
     if (isLinux) {
         document.querySelector('#command').innerHTML = "sudo ./monsterinthemiddle-linux-x64/monsterinthemiddle --no-sandbox";
+        console.log('process.argv',process.argv)
     }
     else if (isOSX) {
-        document.querySelector('#command').innerHTML = "sudo ./monsterinthemiddle-darwin-x64/snifferjs.app/Contents/MacOS/Electron --no-sandbox";
+        document.querySelector('#command').innerHTML = "sudo ./monsterinthemiddle-darwin-x64/monsterinthemiddle.app/Contents/MacOS/Electron --no-sandbox";
     }
     else if (isWin) {
         document.querySelector('#troubleshooting').innerHTML = "On windows installing <a href='https://www.wireshark.org/download.html'>Wireshark</a> or <a href='https://nmap.org/npcap/'>NPCap</a> should give all users permissions to monitor the network interface. If you experiance issues perhaps confirm that Wireshark works first.";

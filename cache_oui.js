@@ -2,22 +2,6 @@
 // is no longer maintained. Mainly I needed to control the sqlite3 dependency
 // more directly when using within node-webkit.
 
-// Currently just reading in file. For Sqlite revert version of this file in:
-// https://github.com/cyphunk/snifferjs/commit/cae731e0ea2a578f7437dd475b68fe1e5533bc63
-// memory profiling shows that initially file->array method creates large
-// overhead until garbage collect:
-//   { rss:  81932288, heapTotal: 56496224, heapUsed: 28114096 }
-//   then later:
-//   { rss:  53932032, heapTotal: 27606624, heapUsed: 23904760 }
-// old sqlite version:
-//   { rss:  44187648, heapTotal: 20811872, heapUsed: 14601848 }
-//   after db created first time:
-//   { rss: 196759552, heapTotal: 86843744, heapUsed: 61633488 }
-//   then later, 10 minutes or so:
-//   { rss: 146825216, heapTotal: 37327456, heapUsed: 17600248 }
-//   on second load it is smaller:
-//   { rss:  58720256, heapTotal: 33183072, heapUsed: 14307504 }
-
 
 var fs          = require('fs');
 var http        = require('http');
