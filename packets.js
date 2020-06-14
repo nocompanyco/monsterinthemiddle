@@ -150,7 +150,7 @@ console.log("");
  */
 // Try to open, if no perms ask user to change permissions
 //              if root, claim interface and then downgrade (to uid)
-let pcap, pcap_session, pcap_decode, cap_session, cap_linktype;
+let pcap, pcap_session, cap_session, cap_linktype;
 try {
     // on windows use cap to get packet (still decoded by pcap)
     if (isWin) {
@@ -158,7 +158,6 @@ try {
         var buffer = Buffer.alloc(65535);
         cap_linktype = cap_session.open(windows_netinterface, filter, 10 * 1024 * 1024, buffer);
         console.log('linkType',cap_linktype)
-        pcap_decode = require('pcap/decode').decode
     }
     else {
         const pcap = require("pcap");
@@ -185,6 +184,7 @@ if (!isWin && process.getuid() == 0) {
         process.setuid(s.uid);
     });
 }
+const pcap_decode = require('pcap/decode').decode
 
 /*  END  */
 
@@ -688,7 +688,7 @@ function process_send_raw_packet(raw_packet) {
         if (isWin)
             var packet = pcap_decode.packet(raw_packet);
         else
-            var packet = pcap.decode.packet(raw_packet);
+            var packet = pcap_decode.packet(raw_packet);
     } catch(err) {
         dumpError(err);
         return null;
