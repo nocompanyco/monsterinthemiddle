@@ -1,6 +1,6 @@
 # monsterinthemiddle
 
-Monster In The Middle is a network analyzer in the early stages of development. Development is supported by [ISCProject](https://www.iscproject.org/).  This is currently not intended for public use. Application is intended for educational purposes only.
+Monster In The Middle is a network analyzer in the early stages of development. Development is supported by [ISC Project](https://www.iscproject.org/).  This is currently not intended for public use. Application is intended for educational purposes only.
 
 **TABLE OF CONTENTS**
 * [Prerequisites](#prerequisites)
