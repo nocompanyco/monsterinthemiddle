@@ -26,7 +26,7 @@
   },
   "postinstall": "electron-builder install-app-deps",
   "build": {
-    "appId": "org.counterpart.monsterinthemiddle",
+    "appId": "org.nocompanyco.monsterinthemiddle",
     "productName": "monsterinthemiddle",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "mac": {
@@ -51,9 +51,11 @@
     },
     "linux": {
       "target": [
-        "deb",
-        "apk",
         "tar.gz"
+      ],
+      "extraFiles": [
+        { "from": "/usr/lib/libpcap.so.1.9.1",
+          "to": "libpcap.so.1" }
       ]
     }
   },
