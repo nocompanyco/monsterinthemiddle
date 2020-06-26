@@ -14,7 +14,7 @@ Download and install [Wireshark](https://www.wireshark.org/#download) regardless
 
 **Windows**: Install [Wireshark](https://www.wireshark.org/#download). When NPcap asks if you want to restrict network monitoring to administrators only, choose no and to allow all users to monitor network. (without setting this you will have to execute Monster In The Middle with administrator privileges)
 
-**Linux**: Either run application as root or modify permissions as instructed in the linux section of [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page. This involves running setcap on binary and changing system ld.so.conf.
+**Linux**: Requires `arp` so install `net-tools` package. Also run application as root or modify permissions as instructed in the linux section of [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page. This involves running setcap on binary and changing system ld.so.conf.
 
 **OSX**: Either run application as root or modify permissions as shown in [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page. This is much simpler and just involves chmod on the network device. 
 
