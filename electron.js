@@ -105,6 +105,7 @@ function showPackets() {
   setTimeout(function() {
     packetsWindow.loadURL('http://localhost:8080');
     packetsWindow.show();
+    settingsWindow.close();
   }, 2000);
 
   packetsWindow.on('closed', function() {
@@ -134,7 +135,6 @@ function showDevices() {
   setTimeout(function() {
     devicesWindow.loadURL('http://localhost:8081');
     devicesWindow.show();
-    settingsWindow.close();
   }, 2000);
 
   devicesWindow.on('closed', function() {
@@ -200,7 +200,7 @@ ipcMain.on('start-live-capture', function(e, arg) {
       devicesProc = fork(__dirname+'/devices.js');
       if (devicesWindow == null) {
         // setTimeout(showPackets, 1000);
-        setTimeout(showDevices, 1000);
+        setTimeout(showPackets, 1000);
       }
     }, 1000);
   }, killwait); // wait one second for existing process to die
