@@ -10,8 +10,16 @@ Written by cyphunk@deadhacker.com for use in the Anonymous-P theater production.
 
 //var ieeeoui  = require('ieee-oui-lookup');
 const ieeeoui        = require('./cache_oui');
-const geolite2       = require('geolite2-redist');
 const maxmind        = require('maxmind');
+let USE_GEOIP        = false;
+let geolite2;
+try {
+  const geolite2     = require('geolite2-redist');
+  const USE_GEOIP    = true;
+} catch (e) {
+  console.error('error loading geolite2 db:', e)
+  console.error('will turn off geo location for IP addresses')
+}
 const dnser          = require('dns');
 const fs             = require('fs');
 const nettools       = require('./nettools.js')
@@ -81,15 +89,19 @@ var oui = (function () {
 }());
 module.exports.oui = oui;
 
-
 // The IP to Geo Location library is blocking. Actually might not
 // be but I am currently too lazy to test so created a cache
 // interface
-let geolookup = geolite2.open('GeoLite2-Country', path => {
+if (geolite2 && geolite2.open) {
+  let geolookup = geolite2.open('GeoLite2-Country', path => {
     let buf = fs.readFileSync(path);
     return new maxmind.Reader(buf);
-});
-//
+  });
+}
+else {
+  let geolookup = null;
+}
+  //
 var geo = (function () {
     var cache    = {},
         requests = {};
@@ -114,7 +126,10 @@ var geo = (function () {
             if (! requests[ip]) {
                 requests[ip] = true;
 
-                var geoval =  geolookup.get(ip);
+                let geoval = null;
+                if (USE_GEOIP)
+                    geoval =  geolookup.get(ip);
+
                 DEBUG_GEOIP && console.log('> geo ip',ip,'to',geoval);
                 if (geoval && geoval.country) {
                   delete requests[ip];
