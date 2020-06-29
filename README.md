@@ -11,15 +11,15 @@ Monster In The Middle (MiTM) is a network analyzer in the early stages of develo
   - [Development and Testing](#development-and-testing)
     - [Using Repository](#using-repository)
     - [Build Installation Packages](#build-installation-packages)
+  - [Current Status](#current-status)
 
 ## Prerequisites
 
-**Windows**: Install [Wireshark](https://www.wireshark.org/#download). The installer will also install NPcap and asks if you want to restrict network monitoring to administrators only, choose no and to allow all users to monitor network. (without setting this you will have to execute Monster In The Middle with administrator privileges as documented in the Winodws section of the [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page)
-
 **Linux**: Requires `arp` command, installed on Ubuntu by installing the `net-tools` package. The MiTM application can be started as root. Run from Terminal application: `sudo ./monsterinthemiddle-{VERSION}/monsterinthemiddle --no-sandbox`. If you would like to start the application without root permissions then see the Linux section of [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page. This involves running setcap on the MiTM binary and changing system ld.so.conf. Additionally MiTM can be used with a [Ubuntu Live USB drive](./docs/Ubuntu_Live.md) if preferred. 
 
+**OSX**: Either run application as root or modify permissions as shown in [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page. Currently application must be run from Terminal application (double-click does not work). This is much simpler and just involves chmod on the network device. 
 
-**OSX**: Either run application as root or modify permissions as shown in [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page. This is much simpler and just involves chmod on the network device. 
+**Windows**: (NOTE: not ready yet) Install [Wireshark](https://www.wireshark.org/#download). The installer will also install NPcap and asks if you want to restrict network monitoring to administrators only, choose no and to allow all users to monitor network. (without setting this you will have to execute Monster In The Middle with administrator privileges as documented in the Winodws section of the [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page)
 
 If you experience issues you should install [Wireshark](https://www.wireshark.org/#download) on your platform to check if you are able to see network traffic through Wireshark. If you are able to see network traffic in Wireshark but not Monster In The Middle then please contact us or file an Issue.
 
@@ -97,3 +97,17 @@ On console each ui element can be executed and tested without electron, using a 
     npm run dist:windows
 
 Find binary packages created in dist directory
+
+
+## Current Status
+
+- OSX: 
+  - double click not working, have to start from console. 
+  - User permission is working.
+- Windows: 
+  - cross-build from linux-wine builds but then application fails on windows. 
+  - windows node/electron Visual Studio environment is horrible. Will need to use VM snapshots to figure this out.
+  - need to build package on windows, not cross-build from linux
+- Linux: 
+  - User permissions works but requires steps most users will not be able to follow.
+  - Ubuntu Live tested and works
