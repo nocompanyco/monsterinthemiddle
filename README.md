@@ -4,8 +4,9 @@ Monster In The Middle (MiTM) is a network analyzer in the early stages of develo
 
 **TABLE OF CONTENTS**
 - [Monster In The Middle](#monster-in-the-middle)
-  - [Prerequisites](#prerequisites)
-  - [Install](#install)
+  - [Linux](#linux)
+  - [OSX](#osx)
+  - [Windows (NOT READY YET)](#windows-not-ready-yet)
   - [Network Setup](#network-setup)
   - [Use](#use)
   - [Development and Testing](#development-and-testing)
@@ -13,33 +14,70 @@ Monster In The Middle (MiTM) is a network analyzer in the early stages of develo
     - [Build Installation Packages](#build-installation-packages)
   - [Current Status](#current-status)
 
-## Prerequisites
 
-**Linux**: Requires `arp` command, installed on Ubuntu by installing the `net-tools` package. The MiTM application can be started as root. Run from Terminal application: `sudo ./monsterinthemiddle-{VERSION}/monsterinthemiddle --no-sandbox`. If you would like to start the application without root permissions then see the Linux section of [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page. This involves running setcap on the MiTM binary and changing system ld.so.conf. Additionally MiTM can be used with a [Ubuntu Live USB drive](./docs/Ubuntu_Live.md) if preferred. 
+## Linux
 
-**OSX**: Either run application as root or modify permissions as shown in [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page. Currently application must be run from Terminal application (double-click does not work). This is much simpler and just involves chmod on the network device. 
+**Prerequisites**
 
-**Windows**: (NOTE: not ready yet) Install [Wireshark](https://www.wireshark.org/#download). The installer will also install NPcap and asks if you want to restrict network monitoring to administrators only, choose no and to allow all users to monitor network. (without setting this you will have to execute Monster In The Middle with administrator privileges as documented in the Winodws section of the [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page)
+Requires `arp` command. Some systems have this already. Ubuntu does not, install the `net-tools` package.
 
-If you experience issues you should install [Wireshark](https://www.wireshark.org/#download) on your platform to check if you are able to see network traffic through Wireshark. If you are able to see network traffic in Wireshark but not Monster In The Middle then please contact us or file an Issue.
+**Download**
 
-## Install
+Download from the [releases page](https://github.com/nocompanyco/monsterinthemiddle/releases) the appropriate binary for your system. Extract/unzip the package.
 
-Download from the [releases page](https://github.com/nocompanyco/monsterinthemiddle/releases) the Linux, OSX or Windows binaries. Current Windows releases are not as thoroughly tested so please report any issues you run into.
+**Permissions**
+
+On Linux configuring the system to allow non-root users to access the network interface requires several steps as described in the [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page. For users that are less familiar with Linux systems we recommend using a Ubuntu Live USB drive (see [docs/Ubuntu_Live.md] instructions) or running the application with root permissions on a system without sensitive data.
+
+**Start**
+
+To start the application with normal user permissions run the following command from the Terminal: `./monsterinthemiddle-0.1.1-linux-x64/monsterinthemiddle` 
+
+To start the application as the root permissions: `sudo ./monsterinthemiddle-0.1.1-linux-x64/monsterinthemiddle --no-sandbox`
+
+## OSX 
+
+**Prerequisites**
+
+Install [Wireshark](https://www.wireshark.org/#download). This will confirm that libpcap is installed and can be used later for troubleshooting purposes.
+
+**Download**
+
+Download from the [releases page](https://github.com/nocompanyco/monsterinthemiddle/releases) the appropriate binary for your system. Extract/unzip the package.
+
+**Permissions**
+
+On OSX configuring the system to allow non-root users to access the network interface is rather simple. Please follow the instructions on the [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page.
+
+**Start**
+
+To start the application with normal user permissions run the following command from the Terminal: `./monsterinthemiddle-0.1.1-linux-x64/monsterinthemiddle`. Note that currently application only works when started from Terminal. (double-click currently not working)
+
+
+
+## Windows (NOT READY YET)
+
+**Prerequisites** 
+
+Install [Wireshark](https://www.wireshark.org/#download). The installer will also install NPcap and ask if you want to restrict network monitoring to administrators only. Choose "no" to allow all users to monitor network without Administrator privileges.
+
+**Download**
+
+Download from the [releases page](https://github.com/nocompanyco/monsterinthemiddle/releases) the appropriate binary for your system. Extract/unzip the package.
+
+**Permissions**
+
+On Windows if when installing Wireshark/NPCap the option to allow all users to access network monitoring was chosen then no changes to permissions are required and application can be started as a normal user. For additional troubleshooting information see [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page.
+
+**Start**
+
+TODO
+
+
 
 ## Network Setup
 
-Running MiTM without any network modification will only show the network traffic of the MiTM host itself. To see the traffic of other network devices the MiTM host must be made the default router. This can be done in several ways
-
-**Use MiTM Arpsoof**  
-* In the "Network scan and control" window of the MiTM application start the network scanner. After some hosts appear then start the Arpspoofer.
-* Setup your MiTM host of forward IP traffic:
-  * Linux: `sudo sysctl -w net.ipv4.ip_forward=1 && sysctl -w net.ipv6.conf.all.forwarding=1`
-  * OSX: Turn on connection sharing
-  * Windows: **TODO**
-
-**Setup Custom WiFi Network**  
-**TODO**
+Running MiTM without any network modification will only show the network traffic of the MiTM host itself. To see the traffic of other network devices the MiTM host must be made the default router. The MiTM application includes a "Scan and configure network" window which can be used to run an Arpspoof attack to take control of the network default router. This is the quickest and recommended method to get started. For details and additional network configuration options see [docs/Network_Setup.md](./docs/Network_Setup.md).
 
 ## Use
 
