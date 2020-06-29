@@ -27,13 +27,18 @@ Download from the [releases page](https://github.com/nocompanyco/monsterinthemid
 
 **Permissions**
 
-On Linux configuring the system to allow non-root users to access the network interface requires several steps as described in the [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page. For users that are less familiar with Linux systems we recommend using a Ubuntu Live USB drive (see [docs/Ubuntu_Live.md] instructions) or running the application with root permissions on a system without sensitive data.
+On Linux configuring the system to allow non-root users to access the network interface requires several steps as described in the [User Permissions](https://github.com/nocompanyco/monsterinthemiddle/wiki/User-Permissions) wiki page. For users that are less familiar with Linux internals we recommend using a Ubuntu Live USB drive (see [docs/Ubuntu_Live.md](./docs/Ubuntu_Live.md) instructions) or running the application with root permissions on a system without sensitive data.
 
 **Start**
 
-To start the application with normal user permissions run the following command from the Terminal: `./monsterinthemiddle-0.1.1-linux-x64/monsterinthemiddle` 
+To start the application with normal user permissions run the following command from the Terminal: 
 
-To start the application as the root permissions: `sudo ./monsterinthemiddle-0.1.1-linux-x64/monsterinthemiddle --no-sandbox`
+    ./monsterinthemiddle-0.1.1-linux-x64/monsterinthemiddle
+
+To start the application as the root permissions: 
+
+    sudo ./monsterinthemiddle-0.1.1-linux-x64/monsterinthemiddle \
+      --no-sandbox
 
 ## OSX 
 
@@ -51,7 +56,11 @@ On OSX configuring the system to allow non-root users to access the network inte
 
 **Start**
 
-To start the application with normal user permissions run the following command from the Terminal: `./monsterinthemiddle-0.1.1-linux-x64/monsterinthemiddle`. Note that currently application only works when started from Terminal. (double-click currently not working)
+To start the application with normal user permissions run the following command from the Terminal: 
+
+    ./monsterinthemiddle-0.1.1-linux-x64/monsterinthemiddle
+    
+Note that currently application only works when started from Terminal. (double-click currently not working)
 
 
 
