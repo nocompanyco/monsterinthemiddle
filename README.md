@@ -1,18 +1,17 @@
-# Monster In The Middle
+**Monster In The Middle**
 
 Monster In The Middle (MiTM) is a network analyzer in the early stages of development. Development is supported by [ISC Project](https://www.iscproject.org/). The current version is not intended for public use. Application is intended for educational purposes only.
 
-**TABLE OF CONTENTS**
-- [Monster In The Middle](#monster-in-the-middle)
-  - [Linux](#linux)
-  - [OSX](#osx)
-  - [Windows (NOT READY YET)](#windows-not-ready-yet)
-  - [Network Setup](#network-setup)
-  - [Use](#use)
-  - [Development and Testing](#development-and-testing)
-    - [Using Repository](#using-repository)
-    - [Build Installation Packages](#build-installation-packages)
-  - [Current Status](#current-status)
+**Table of Contents**
+- [Linux](#linux)
+- [OSX](#osx)
+- [Windows (NOT READY YET)](#windows-not-ready-yet)
+- [Network Setup](#network-setup)
+- [Use](#use)
+- [Development and Testing](#development-and-testing)
+  - [Using Repository](#using-repository)
+  - [Build Installation Packages](#build-installation-packages)
+- [Current Status](#current-status)
 
 
 ## Linux
@@ -107,13 +106,13 @@ Running MiTM without any network modification will only show the network traffic
 
 ### Using Repository
 
-Install electron UI version:
+Testing electron UI version:
 
     npm install
     npm run rebuild_electron
     npm run start_electron
 
-Install console only version, for debugging:
+Testing console only version, for debugging:
 
     npm install
     npm rebuild
@@ -130,6 +129,8 @@ On console each ui element can be executed and tested without electron, using a 
     node arpspoof.js --eth <network_interface> --gateway <default_gateway_ip>
     http://localhost:8083
 
+Note: On OSX under certain conditions some child processes do not close when application is closed. This causes certain network ports used for the UI to remain in use and upon starting the application again the new process may not be able to start up certain UI elements. Therefor if you are using the above route to test the application you might check that all child processes are destroyed before restarting the application. 
+
 ### Build Installation Packages
 
     npm install
@@ -141,6 +142,9 @@ On console each ui element can be executed and tested without electron, using a 
     npm run dist:linux
 
     ON WINDOWS:
+    # resolve issue require('pcap/decode')
+    git clone https://github.com/node-pcap/node_pcap.git node_modules/pcap
+    rm node_modules/pcap/binding.gyp
     npm run dist:windows
 
 Find binary packages created in dist directory

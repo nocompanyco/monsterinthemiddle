@@ -236,7 +236,8 @@ process.on( 'SIGINT', function() {
 })
 // handle stdin, only process 1 char commands
 const stdin = process.openStdin();
-stdin.setRawMode(true);
+if ('setRawMode' in stdin)
+    stdin.setRawMode(true);
 stdin.resume();
 stdin.setEncoding('utf8');
 stdin.on( 'data', function( key ){

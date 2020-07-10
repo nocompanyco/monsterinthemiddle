@@ -793,7 +793,8 @@ function load_state() {
 }
 
 var stdin = process.openStdin();
-stdin.setRawMode(true);
+if ('setRawMode' in stdin)
+    stdin.setRawMode(true);
 stdin.resume();
 stdin.setEncoding('utf8');
 stdin.on( 'data', function( key ){
