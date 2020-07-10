@@ -48,7 +48,7 @@ var fetch = function(cb) {
         debug && cb(null, "finished downloading "+OUI_URL);
         fs.rename(OUI_TXT+'.tmp', OUI_TXT, function() {
             parse(cb) }); });
-    f.on('error', function(){
+    f.on('error', function(err){
         cb(err, null);
         fs.unlink(OUI_TXT+'.tmp') });
 
