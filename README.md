@@ -111,6 +111,8 @@ Testing electron UI version:
     npm install
     npm run rebuild_electron
     npm run start_electron
+    # if error starting on windows, try:
+    .\node_modules\.bin\electron.cmd electron.js
 
 Testing console only version, for debugging:
 
