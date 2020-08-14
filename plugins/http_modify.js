@@ -7,22 +7,26 @@ var port = 8080;
 var proxy = Proxy();
 
 // match and replace content or drop
+// first filter modifies body
+// second filter will modify 301 to 200
+// third will drop 301 entirely (not allowing header to return)
+// Note that target host/ips can only have one filter
 var filters = [
-  { 'dsthosts' : ['nocompany.co'],
-        'drop' : false,
+  { 'dsthosts' : [ 'nocompany.co' ],
      'content' : {   'match' : new RegExp('<body.*?<\/body>',"g"),
                    'replace' : '<body>REPLACED</body>' } },
-  { 'dsthosts' : ['45.76.82.70_TMEPINVALID'],
-        'drop' : true,
-     'content' : {   'match' : '301 Moved Permanently',
-                   'replace' : null } },
-  { 'dsthosts' : ['45.76.82.70'],
-        'drop' : false,
+  { 'dsthosts' : [ '45.76.82.70' ],
      'content' : {   'match' : /301 Moved Permanently/g,
                    'replace' : '200' },
      'headers' : { 'ctx_path' : 'ctx.serverToProxyResponse.statusCode',
                       'match' : 301,
-                    'replace' : 200 } }
+                    'replace' : 200 } },
+  { 'dsthosts' : [ '45.76.82.70_CHANGEME' ],
+     'content' : {   'match' : /301 Moved Permanently/g,
+                      'drop' : true },
+     'headers' : { 'ctx_path' : 'ctx.serverToProxyResponse.statusCode',
+                      'match' : 301,
+                       'drop' : true } }
 ]
 
 // this is updated by functions that edit filters and is just used to more quickly check for hosts
@@ -70,12 +74,15 @@ proxy.onRequest(function(ctx, callback) {
     if (filter.hasOwnProperty('content') ) {
       // If filterint content setup data filter
       ctx.onResponseData(function(ctx, chunk, callback) {
-          if (filter.drop !== true && filter.content.replace !== null) {
+          if (filter.content.drop) {
+            return callback(null, null);
+          }
+          else if (filter.content.hasOwnProperty('replace')) {
             chunk = new Buffer(chunk.toString().replace(filter.content.match, filter.content.replace));
             return callback(null, chunk);
           }
-          else if (filter.drop) { // can only prevent content being return. headers from server still returned
-            return callback(null, chunk);
+          else {
+            console.error('filter.content error: either replace or drop=true should be set')
           }
       });
     }
@@ -88,10 +95,18 @@ proxy.onRequest(function(ctx, callback) {
         console.log(ctx.serverToProxyResponse.statusCode)
         debugger;
         if (eval(filter.headers.ctx_path) === filter.headers.match) {
-          console.log('change',eval(filter.headers.ctx_path), '&', filter.headers.match, 'to', filter.headers.replace)
-          eval(`${filter.headers.ctx_path} = ${filter.headers.replace}`)
+          if (filter.headers.drop) {
+            // do not respond. could cause client to hang
+          }
+          else if (filter.headers.hasOwnProperty('replace')) {
+            console.log('change',eval(filter.headers.ctx_path), '&', filter.headers.match, 'to', filter.headers.replace)
+            eval(`${filter.headers.ctx_path} = ${filter.headers.replace}`)
+            return callback();
+          }
+          else {
+            console.error('filter.headers error: either replace or drop=true should be set')
+          }
         }
-        return callback();
       })
     }
 
@@ -134,7 +149,7 @@ if (process.argv.length > 2 && process.argv[2] == 'test') {
 
 
 /*
-curl -x 'http://localhost:8080' http://nocompany.co
+curl -v -x 'http://localhost:8080' http://nocompany.co
 <html><head><style>
 body {background-image: url("./n.png");}
 _@media (orientation: landscape) { img{height:8vw;} }
