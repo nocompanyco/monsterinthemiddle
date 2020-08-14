@@ -12,21 +12,33 @@ var proxy = Proxy();
 // third will drop 301 entirely (not allowing header to return)
 // Note that target host/ips can only have one filter
 var filters = [
-  { 'dsthosts' : [ 'nocompany.co' ],
-     'content' : {   'match' : new RegExp('<body.*?<\/body>',"g"),
-                   'replace' : '<body>REPLACED</body>' } },
-  { 'dsthosts' : [ '45.76.82.70' ],
-     'content' : {   'match' : /301 Moved Permanently/g,
-                   'replace' : '200' },
-     'headers' : { 'ctx_path' : 'ctx.serverToProxyResponse.statusCode',
-                      'match' : 301,
-                    'replace' : 200 } },
-  { 'dsthosts' : [ '45.76.82.70_CHANGEME' ],
-     'content' : {   'match' : /301 Moved Permanently/g,
-                      'drop' : true },
-     'headers' : { 'ctx_path' : 'ctx.serverToProxyResponse.statusCode',
-                      'match' : 301,
-                       'drop' : true } }
+  { dsthosts: [ 'nocompany.co' ],
+     content: {    match: new RegExp('<body.*?<\/body>',"g"),
+                 replace: '<body>REPLACED</body>' } },
+
+  { dsthosts: [ '45.76.82.70' ],
+     content: {    match: /301 Moved Permanently/g,
+                 replace: '200' },
+     headers: { ctx_path: 'ctx.serverToProxyResponse.statusCode',
+                   match: 301,
+                 replace: 200 } },
+                 
+  { dsthosts: [ '45.76.82.70_CHANGEME' ],
+     content: {    match: /301 Moved Permanently/g,
+                    drop: true },
+     headers: { ctx_path: 'ctx.serverToProxyResponse.statusCode',
+                   match: 301,
+                    drop: true } },
+
+  { dsthosts: [ 'cryptomixer1.com' ],
+     content: {    match: /301 Moved Permanently/g,
+                 replace: '200' },
+     headers: { ctx_path: 'ctx.serverToProxyResponse.statusCode',
+                   match: 301,
+                 replace: 200,
+                replace_many: [ { ctx_path: 'ctx.serverToProxyResponse.headers.location', 
+                                     match: /https:\/\//g, 
+                                   replace: 'http://'} ] } },
 ]
 
 // this is updated by functions that edit filters and is just used to more quickly check for hosts
@@ -61,8 +73,9 @@ proxy.onRequest(function(ctx, callback) {
     console.log(ctx.proxyToClientResponse.socket._sockname)
     console.log(ctx.proxyToClientResponse.socket._peername)
   
-    console.log(require('util').inspect(ctx, showHidden=true, depth=12, colorize=true));
-      // && ctx.clientToProxyRequest.url.indexOf('/') == 0) {
+    // console.log(require('util').inspect(ctx, showHidden=true, depth=12, colorize=true));
+
+    // && ctx.clientToProxyRequest.url.indexOf('/') == 0) {
     // ctx.use(Proxy.gunzip);
     debugger; // run `node inspect` and call `cont` then `repl` therein to inspect ctx
 
@@ -101,6 +114,17 @@ proxy.onRequest(function(ctx, callback) {
           else if (filter.headers.hasOwnProperty('replace')) {
             console.log('change',eval(filter.headers.ctx_path), '&', filter.headers.match, 'to', filter.headers.replace)
             eval(`${filter.headers.ctx_path} = ${filter.headers.replace}`)
+
+            if (filter.headers.hasOwnProperty('replace_many')) {
+              filter.headers.replace_many.forEach(e => {
+                console.log('replace ',e.ctx_path, eval(e.ctx_path))
+                if (e.match)
+                  eval(`${e.ctx_path} = ${e.ctx_path}.replace(${e.match}, '${e.replace}')`)
+                else
+                  eval(`${e.ctx_path} = ${e.replace}`)
+              })
+            }
+
             return callback();
           }
           else {
