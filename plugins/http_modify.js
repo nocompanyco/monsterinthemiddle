@@ -12,10 +12,17 @@ var filters = [
         'drop' : false,
      'content' : {   'match' : new RegExp('<body.*?<\/body>',"g"),
                    'replace' : '<body>REPLACED</body>' } },
-  { 'dsthosts' : ['45.76.82.70'],
+  { 'dsthosts' : ['45.76.82.70_TMEPINVALID'],
         'drop' : true,
      'content' : {   'match' : '301 Moved Permanently',
-                   'replace' : null } }
+                   'replace' : null } },
+  { 'dsthosts' : ['45.76.82.70'],
+        'drop' : false,
+     'content' : {   'match' : /301 Moved Permanently/g,
+                   'replace' : '200' },
+     'headers' : { 'ctx_path' : 'ctx.serverToProxyResponse.statusCode',
+                      'match' : 301,
+                    'replace' : 200 } }
 ]
 
 // this is updated by functions that edit filters and is just used to more quickly check for hosts
@@ -59,15 +66,35 @@ proxy.onRequest(function(ctx, callback) {
     var filter = filters[filter_index];
     console.log(`filter: ${filter_index}`,filter)
     
-    ctx.onResponseData(function(ctx, chunk, callback) {
-        if (filter.drop !== true && filter.content.replace !== null) {
-          chunk = new Buffer(chunk.toString().replace(filter.content.match, filter.content.replace));
-          return callback(null, chunk);
+
+    if (filter.hasOwnProperty('content') ) {
+      // If filterint content setup data filter
+      ctx.onResponseData(function(ctx, chunk, callback) {
+          if (filter.drop !== true && filter.content.replace !== null) {
+            chunk = new Buffer(chunk.toString().replace(filter.content.match, filter.content.replace));
+            return callback(null, chunk);
+          }
+          else if (filter.drop) { // can only prevent content being return. headers from server still returned
+            return callback(null, chunk);
+          }
+      });
+    }
+
+    if (filter.hasOwnProperty('headers')) {
+      // if filtering headers setup a response filter
+      ctx.onResponse(function(ctx, callback) {
+        console.log('onResponse');
+        console.log(ctx.serverToProxyResponse.headers)
+        console.log(ctx.serverToProxyResponse.statusCode)
+        debugger;
+        if (eval(filter.headers.ctx_path) === filter.headers.match) {
+          console.log('change',eval(filter.headers.ctx_path), '&', filter.headers.match, 'to', filter.headers.replace)
+          eval(`${filter.headers.ctx_path} = ${filter.headers.replace}`)
         }
-        else if (filter.drop) { // can only prevent content being return. headers from server still returned
-          return callback(null, null);
-        }
-    });
+        return callback();
+      })
+    }
+
   }
   return callback();
 });
@@ -99,7 +126,8 @@ function test () {
 
 
 if (process.argv.length > 2 && process.argv[2] == 'test') {
-  init(test)
+  init()
+  // init(test)
 }
 
 
