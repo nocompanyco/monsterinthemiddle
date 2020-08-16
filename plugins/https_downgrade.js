@@ -27,45 +27,60 @@ var proxy = Proxy();
 // second filter will modify 301 to 200
 // third will drop 301 entirely (not allowing header to return)
 // Note that target host/ips can only have one filter
-var filters = [
-  // this rule will see a http://nathafain.com request, ignore possible 301 redirect, secretly send to https: and return that over http
-  // this rule will try the same on a direct https://nathanfain.com request
+exports.filters = [
+  // this rule will see a http://nathafain.com request, ignore possible 301 redirect, secretly send to https://, modify the response and return that over http
   {     dsthosts: [ 'nathanfain.com' ],
-      urlreplace: [ 'https://nathanfain.com'], // on dsthosts[N], drop and request urlreplace[N]+urlpath instead
+      urlreplace: [ 'https://nathanfain.com' ], // on dsthosts[N], drop and request urlreplace[N]+urlpath instead
    bodytransform: body => body.toString('utf-8').toUpperCase(),
            debug: true,
-           drop: true, // drop will not send any data in response to client request
+           // drop: true, // drop will not send any data in response to client request
         },
+
   // this rule would drop all https://nathanfain.com requests
-  {     dsthosts: [ 'nathanfain.com:443'],
-           drop: true, },
+  // { dsthosts: [ 'nathanfain.com:443'],
+  //       drop: true, },
 
   // this rune attempts to modify the http initial version. 
   // its a failed attempt to see how far we can play with https proxying
-  // {     dsthosts: [ 'nathanfain.com:443'],
-  //   bodytransform: body => body.toString('utf-8').replace(/http 1\.1/gi, 'http 1.2'),
-  //         //  drop: true 
-  //         debug: true,
-  //         },
+  // currently this form of replacement does not work for HTTPS:
+  // these filters *can* be used to drop https requests
+  {     dsthosts: [ 'nathanfain.com:443' ],
+   bodytransform: body => body.toString('utf-8').replace(/http\/1\.1/gi, 'http/1.2'),
+           debug: true, },
 
-  { dsthosts: [ 'cryptomixer1.com', 'cryptomixer1.com:443' ],
-       debug: true,
-     bodytransform: body => replace(/301 Moved Permanently/g, '200')  },
+  {     dsthosts: [ 'localhost:443' ],
+   bodytransform: body => body.toString('utf-8').replace(/http 1\.1/gi, 'http 1.2'),
+           // drop: true 
+           debug: true, },
+
+  //
+  {     dsthosts: [ 'cryptomixer1.com' ],
+           debug: true,
+   bodytransform: body => body.toString('utf-8').replace(/301 Moved Permanently/g, '200')  },
+
+  {     dsthosts: [ 'cryptomixer1.com:443' ], 
+            drop: true },
 ]
 
 // this is updated by functions that edit filters and is just used to more quickly check for hosts
 // retains the filter index
-var filters_hosts = []; // array of all host names found
-var filters_index = {} // 'hostname' = index in filters[]
+exports.filters_hosts = []; // array of all host names found
+exports.filters_index = {}; // 'hostname' = index in filters[]
 function update_filters_hosts() {
-  filters_hosts = filters.map(f => f.dsthosts).flat();
-  filters.forEach( (f, index) => {
+  exports.filters_hosts = exports.filters.map(f => f.dsthosts).flat();
+  exports.filters.forEach( (f, index) => {
     f.dsthosts.forEach(host => {
-      filters_index[host] = index;
+      exports.filters_index[host] = index;
     });
   });
 }
 update_filters_hosts();
+exports.update_filters_hosts = update_filters_hosts;
+exports.filters_get = () => exports.filters;
+exports.filters_set = _filters => {
+  exports.filters = _filters;
+  update_filters_hosts();
+}
 
 
 proxy.onError(function(ctx, err) {
@@ -74,17 +89,28 @@ proxy.onError(function(ctx, err) {
 
 proxy.onRequest(function(ctx, callback) {
   console.log('onRequest (http)', ctx.clientToProxyRequest.headers.host, ctx.clientToProxyRequest.url)
+//  console.log(ctx.clientToProxyRequest.headers)
+//  console.log(ctx.clientToProxyRequest.rawHeaders)
+//  console.log(ctx.clientToProxyRequest.url)
+//  console.log(ctx.clientToProxyRequest.socket._sockname)
+//  console.log(ctx.clientToProxyRequest.socket._peername)
+//  console.log()
+//  console.log(ctx.proxyToClientResponse.socket._sockname)
+//  console.log(ctx.proxyToClientResponse.socket._peername)
+  
+//  console.log(require('util').inspect(ctx, showHidden=true, depth=12, colorize=true));
 
-  if ( filters_hosts.indexOf(ctx.clientToProxyRequest.headers.host) >= 0)
+  if ( exports.filters_hosts.indexOf(ctx.clientToProxyRequest.headers.host) >= 0)
   {
-    var _findx = filters_index[ctx.clientToProxyRequest.headers.host]
-    var filter = filters[_findx]
+    var _i = exports.filters_index[ctx.clientToProxyRequest.headers.host]
+    var filter = exports.filters[_i]
     console.log('filter',filter)
     // URLreplace is used to prevent 301 redirect from http to https
     // we will make the request secretly and return content back over http
     if (filter.hasOwnProperty('urlreplace')) {
       var _idx = filter.dsthosts.indexOf(ctx.clientToProxyRequest.headers.host)
       urlreplace = filter.urlreplace[_idx] + ctx.clientToProxyRequest.url
+      console.log(urlreplace, _idx)
       https.get(urlreplace, (res) => {
         console.log('statusCode:', res.statusCode);
         console.log('headers:', res.headers);
@@ -139,11 +165,11 @@ proxy.onRequest(function(ctx, callback) {
 });
 proxy.onConnect(function(req, client_to_proxy_socket, head) {
   console.log('onConnect (https)',req.headers.host)
-  if ( filters_hosts.indexOf(req.headers.host) >= 0)
+  if ( exports.filters_hosts.indexOf(req.headers.host) >= 0)
   {
 
-    var _findx = filters_index[req.headers.host]
-    var filter = filters[_findx]
+    var _findx = exports.filters_index[req.headers.host]
+    var filter = exports.filters[_findx]
     console.log('filter',filter)
    
     if (filter.drop) {
@@ -162,6 +188,10 @@ proxy.onConnect(function(req, client_to_proxy_socket, head) {
       proxy_to_server_socket.on('finish', () => {
         client_to_proxy_socket.destroy();
       });
+      
+      // The following form of collecting data is not used and instead we are currently
+      // using socket pipes below this section
+      /*
       var chunks = [];
       var buffer;
       proxy_to_server_socket.on('data', chunk => {console.log('.');chunks.push(chunk)}); // data is encrypted
@@ -172,27 +202,25 @@ proxy.onConnect(function(req, client_to_proxy_socket, head) {
         }
         if (filter.debug)
           console.log( buffer.toString('utf-8') ) 
-        client_to_proxy_socket.write('HTTP/1.1 200 OK\r\n\r\n'+buffer.toString('utf-8'), 'UTF-8');
+        client_to_proxy_socket.write(buffer);
+        // client_to_proxy_socket.write('HTTP/1.1 200 OK\r\n\r\n'+buffer.toString('utf-8'), 'UTF-8');
   
-      } )
+      });
+      */
       client_to_proxy_socket.on('close', () => {
         proxy_to_server_socket.end();
       });
 
+      // https://developer.mozilla.org/en-US/docs/Web/HTTP/Redirections
+      // client_to_proxy_socket.write('HTTP/1.1 301 OK\r\nLocation: http://'+host+'\r\n\r\n', 'UTF-8', function(){ // Moved Permanently
       client_to_proxy_socket.write('HTTP/1.1 200 OK\r\n\r\n', 'UTF-8', function(){
-        // TODO: fix this. We likely need to go back to a stream interception tactic
-        //       the on('end') where we collect chunks does not work
-        
+        // TODO: if we want to modify SSL encrypted data in transit we will
+        //       have to reintroduce the Upperstream pipes
         proxy_to_server_socket.pipe(client_to_proxy_socket);
         // proxy_to_server_socket.pipe(new UpperStream()).pipe(client_to_proxy_socket)
-
-        // console.log('### client_to_proxy_socket\n', require('util').inspect(req, showHidden=true, depth=12, colorize=false));
-  
         client_to_proxy_socket.pipe(proxy_to_server_socket);
-    
-        // debugger; // run `node inspect` and call `cont` then `repl` therein to inspect ctx
-      
-      })
+          
+      });
     });
   
     proxy_to_server_socket.on('error', function(err) {
@@ -221,72 +249,6 @@ function filterSocketConnReset(err, socketDescription) {
   }
 }
 
-// proxy.onRequest(function(ctx, callback) {
-
-//   if (filters_hosts.indexOf(ctx.clientToProxyRequest.headers.host) >= 0)
-//   {
-//     console.log(ctx.clientToProxyRequest.headers)
-//     console.log(ctx.clientToProxyRequest.rawHeaders)
-//     console.log(ctx.clientToProxyRequest.url)
-//     console.log(ctx.clientToProxyRequest.socket._sockname)
-//     console.log(ctx.clientToProxyRequest.socket._peername)
-//     console.log()
-//     console.log(ctx.proxyToClientResponse.socket._sockname)
-//     console.log(ctx.proxyToClientResponse.socket._peername)
-  
-//     console.log(require('util').inspect(ctx, showHidden=true, depth=12, colorize=true));
-//       // && ctx.clientToProxyRequest.url.indexOf('/') == 0) {
-//     // ctx.use(Proxy.gunzip);
-//     // debugger; // run `node inspect` and call `cont` then `repl` therein to inspect ctx
-
-//     var filter_index = filters_index[ctx.clientToProxyRequest.headers.host];
-//     var filter = filters[filter_index];
-//     console.log(`filter: ${filter_index}`,filter)
-    
-
-//     if (filter.hasOwnProperty('bodytransform') ) {
-//       // If filterint bodytransform setup data filter
-//       ctx.onResponseData(function(ctx, chunk, callback) {
-//           if (filter.bodytransform.drop) {
-//             return callback(null, null);
-//           }
-//           else if (filter.bodytransform.hasOwnProperty('replace')) {
-//             chunk = new Buffer(chunk.toString().replace(filter.bodytransform.match, filter.bodytransform.replace));
-//             return callback(null, chunk);
-//           }
-//           else {
-//             console.error('filter.bodytransform error: either replace or drop=true should be set')
-//           }
-//       });
-//     }
-
-//     if (filter.hasOwnProperty('headers')) {
-//       // if filtering headers setup a response filter
-//       ctx.onResponse(function(ctx, callback) {
-//         console.log('onResponse');
-//         console.log(ctx.serverToProxyResponse.headers)
-//         console.log(ctx.serverToProxyResponse.statusCode)
-//         debugger;
-//         if (eval(filter.headers.ctx_path) === filter.headers.match) {
-//           if (filter.headers.drop) {
-//             // do not respond. could cause client to hang
-//           }
-//           else if (filter.headers.hasOwnProperty('replace')) {
-//             console.log('change',eval(filter.headers.ctx_path), '&', filter.headers.match, 'to', filter.headers.replace)
-//             eval(`${filter.headers.ctx_path} = ${filter.headers.replace}`)
-//             return callback();
-//           }
-//           else {
-//             console.error('filter.headers error: either replace or drop=true should be set')
-//           }
-//         }
-//       })
-//     }
-
-//   }
-//   return callback();
-// });
-
 function init (cb) {
   proxy.listen({port: port}, function() {
     console.log('Proxy server listening on ' + port);
@@ -295,7 +257,7 @@ function init (cb) {
   });
 };  
 exports.init = init;
-exports.close = proxy.close;
+exports.close = () => proxy.close();
 
 
 
@@ -313,9 +275,11 @@ function test () {
 }
 
 
-if (process.argv.length > 2 && process.argv[2] == 'test') {
-  init()
-  // init(test)
+if (process.argv.length > 2) {
+  if (process.argv[2] == 'init')
+    init()
+  else if (process.argv[2] == 'test')
+    init(test)
 }
 
 
@@ -323,11 +287,6 @@ if (process.argv.length > 2 && process.argv[2] == 'test') {
 
 /*
 curl -v -x 'http://localhost:8080' http://nocompany.co
-<html><head><style>
-body {background-image: url("./n.png");}
-_@media (orientation: landscape) { img{height:8vw;} }
-_@media (orientation: portrait)  { img{height:10vh;} }
-</style></head><body>Pwned!</body></html>
 */
 
 
