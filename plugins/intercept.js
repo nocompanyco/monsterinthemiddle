@@ -28,12 +28,12 @@ exports.plugin = {
   description: '',
   menuname: 'HTTP/S Intercept',
   submenus: [
-    {'start':  () => exports.init()  },
-    {'stop':   () => exports.stop() },
-    {'pause':  () => exports.pause() },
-    {'exit':   () => exports.close() },
-    {'log':    () => exports.show_log() },
-    {'settings':    () => exports.show_log() },
+    {'start':    () => exports.init()  },
+    {'stop':     () => exports.stop() },
+    {'pause':    () => exports.pause() },
+    {'exit':     () => exports.close() },
+    {'log':      () => exports.show_log() },
+    {'settings': () => exports.show_settings() },
   ],
   get_settings: () => {
     // get config from the global settings file or else use defaults
