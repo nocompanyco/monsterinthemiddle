@@ -18,15 +18,14 @@ const plugins = require('plugins');
 
 
 //
-// Monster-In-The-Middle plugin defintion
+// Monster-In-The-Middle plugin definition
 //
 // should have a view for start stop and log and config all in one
-export.settings = {};
 var plugin_name = 'intercept';
+exports.settings = {};
 exports.plugin = {
   name: plugin_name,
   description: '',
-  menuname: 'HTTP/S Intercept',
   submenus: [
     {'start':    () => exports.init()  },
     {'stop':     () => exports.stop() },
