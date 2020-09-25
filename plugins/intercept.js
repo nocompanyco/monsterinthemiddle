@@ -14,7 +14,8 @@ const Proxy = require('http-mitm-proxy');
 const net = require('net');
 const { Buffer } = require('buffer');
 const https = require('https');
-const plugins = require('plugins');
+const plugins = require('../plugins');
+
 
 
 //
@@ -27,7 +28,7 @@ exports.plugin = {
   name: plugin_name,
   description: '',
   submenus: [
-    {'start':    () => exports.init()  },
+    {'start':    () => exports.init() },
     {'stop':     () => exports.stop() },
     {'pause':    () => exports.pause() },
     {'exit':     () => exports.close() },
@@ -44,7 +45,7 @@ exports.plugin = {
     else {
       return {'filters': exports.filters };
     }
-  }
+  },
   set_settings: string => {
     if (typeof string === 'string') {
       eval(`_tmp=${string}`);
@@ -123,10 +124,14 @@ exports.settings.filters = [
 ]
 
 
+// if on node v10 and older:
+Array.prototype.flat = function() { return this.concat.apply([], this) }
+
+
 // these values are populated just used to more quickly check for hosts and are opulated by functions
 exports.filters_hosts = []; // array of all host names found
 exports.filters_index = {}; // reverse map of {'hostname':#} to its index number in filters_hosts[]
-exports.update_filters_hosts = update_filters_hosts() {
+exports.update_filters_hosts = function() {
   exports.filters_hosts = exports.settings.filters.map(f => f.dsthosts).flat();
   exports.settings.filters.forEach( (f, index) => {
     f.dsthosts.forEach(host => {

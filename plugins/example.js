@@ -16,26 +16,34 @@ exports.plugin = {
     // Only triggers if it is defined with function as value:
     //new_hosts: host => {console.log('host',host)},
   },
+
+
+  //
+  // The rest of the following items are not required and 
+  // have sensible defaults generated for each plugin if not
+  // defined here
+  //
+
   description: 'Example plugin showing how to create plugins',
 
   /* 
    *  submenus: 
    *  These menus shown in UI under "Plugins" menu
    */
-  submenus: [
-   // start: sets a enabled state to indicate packets or data should be processed
-    {'start':    () => plugins.start() },
-   // stop:  turns off enabled state
-    {'stop':     () => plugins.stop() },
-   // pause: same
-    {'pause':    () => plugins.pause() },
-   // exit:  does nothing by default
-    {'exit':     () => plugins.close() },
-   // log:   does nothing by default
-    {'log':      () => plugins.show_log() },
-   // settings: show a UI where plugin_example.json can be edited
-    {'settings': () => plugins.show_settings() },
-  ],
+  submenus: {
+   //start:sets a enabled state to indicate packets or data should be processed
+     start:    () => plugins.start(),
+   //stop:turns off enabled state
+     stop:     () => plugins.stop(),
+   //pause:same
+     pause:    () => plugins.pause(),
+   //exit:does nothing by default
+     exit:     () => plugins.exit(),
+   //log:does nothing by default
+     log:      () => plugins.show_log(),
+   //settings:show a UI where plugin_example.json can be edited
+     settings: () => plugins.show_settings(),
+  },
 
   /*
    *  get_settings:
@@ -58,6 +66,7 @@ if (process.argv.length > 2) {
   if (process.argv[2] == 'test') {
     console.log('exports.plugin', exports.plugin)
     console.log('exports.settings', exports.settings)
+    plugins.init()
   }
 }
 
