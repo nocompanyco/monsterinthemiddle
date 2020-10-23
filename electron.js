@@ -8,10 +8,10 @@ const fork = require('child_process').fork;
 let settingsWindow   = null;
 let packetsWindow    = null;
 let devicesWindow    = null;
-let arpspoofWindow   = null;
+let scanWindow   = null;
 let packetsProc      = null; // child fork handler for packets capture
 let devicesProc      = null; // child fork  handler for devices ui
-let arpspoofProc     = null;
+let scanProc     = null;
 let network_settings = null;
 
 /* eslint-disable indent, object-curly-spacing, brace-style */
@@ -31,7 +31,7 @@ const menuTemplate = [
     { label: 'Packets monitor', accelerator: 'CmdOrCtrl+P',
       click(item, win) {showPackets();} },
     { label: 'Network scan and control', accelerator: 'CmdOrCtrl+N',
-    click(item, win) {showArpspoof();} },
+    click(item, win) {showScan();} },
 ]},
 { label: '&View', submenu: [
     { role: 'reload'},
@@ -142,19 +142,19 @@ function showDevices() {
   });
 }
 
-function showArpspoof() {
-  if (!arpspoofProc) {
+function showScan() {
+  if (!scanProc) {
     const args = network_settings;
-    arpspoofProc = fork(__dirname+'/arpspoof.js', ['--eth', args.eth, '--gateway', args.gateway, '--start', 'no']);
+    scanProc = fork(__dirname+'/scan.js', ['--eth', args.eth, '--gateway', args.gateway, '--start', 'no']);
   }
 
-  if (arpspoofWindow) {
-    arpspoofWindow.show();
+  if (scanWindow) {
+    scanWindow.show();
     return;
   }
-  arpspoofWindow = new BrowserWindow({
+  scanWindow = new BrowserWindow({
     width: 600, height: 650,
-    title: 'Network scan and control',
+  title: 'Network scan and control',
     frame: true, // no removes all borders
     show: true,
     webPreferences: {
@@ -163,15 +163,15 @@ function showArpspoof() {
     // icon: __dirname + '/build/icon.png'
   });
   Menu.setApplicationMenu(menu);
-  // arpspoofWindow.webContents.openDevTools();
+  // scanWindow.webContents.openDevTools();
 
   setTimeout(function() {
-    arpspoofWindow.loadURL('http://localhost:8083');
-    arpspoofWindow.show();
+    scanWindow.loadURL('http://localhost:8083');
+    scanWindow.show();
   }, 2000);
 
-  arpspoofWindow.on('closed', function() {
-    arpspoofWindow = null;
+  scanWindow.on('closed', function() {
+    scanWindow = null;
   });
 }
 
@@ -188,8 +188,8 @@ ipcMain.on('start-live-capture', function(e, arg) {
     devicesProc.kill('SIGINT');
     killwait = 1000;
   }
-  if (arpspoofProc !== null) {
-    arpspoofProc.kill('SIGINT');
+  if (scanProc !== null) {
+    scanProc.kill('SIGINT');
     killwait = 1000;
   }
 
@@ -214,7 +214,7 @@ ipcMain.on('start-load-capture', function(e, arg) {
 app.on('window-all-closed', function() {
   if (packetsProc !== null) packetsProc.kill('SIGINT');
   if (devicesProc !== null) devicesProc.kill('SIGINT');
-  if (arpspoofProc !== null) arpspoofProc.kill('SIGINT');
+  if (scanProc !== null) scanProc.kill('SIGINT');
   // On OS X it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
   if (process.platform != 'darwin') {

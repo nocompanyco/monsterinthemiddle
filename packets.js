@@ -203,13 +203,13 @@ const util     = require('util');
 // Our own libs:
 const cache    = require('./cache.js'); // oui,geo,dns,etc caches
 const nettools = require('./nettools.js')
+const plugins  = require('./plugins.js');
 // 3rd party
 const DNS      = require("pcap/decode/dns"); // pcap@2.0.1 dns decoding requires
 const express  = require('express');
 const app      = express();
 const server   = require('http').createServer(app);
 const io       = require('socket.io').listen(server);
-
 /*  END  */
 
 
@@ -290,6 +290,12 @@ app.use('/ui', express.static(__dirname + '/ui'));
 /*  END  */
 
 
+/*
+ *
+ * PLUGINS PREPARE
+ * 
+ */
+plugins.all.triggers_populate();
 
 
 /*
@@ -685,12 +691,17 @@ else {
 }
 
 function process_send_raw_packet(raw_packet) {
+    plugins.all.triggers_run('raw_packets', raw_packet);
+
     try {
         var packet = pcap_decode.packet(raw_packet);
     } catch(err) {
         dumpError(err);
         return null;
     }
+    
+    plugins.all.triggers_run('decoded_packet', packet);
+
 
     parse_packet(packet, function(packet){
         packet_count += 1;
@@ -724,6 +735,9 @@ function process_send_raw_packet(raw_packet) {
             packets_cache.push(packet);
         }
         debugger; // use --inspect and open chrome
+
+        plugins.all.triggers_run('parsed_packet', packet);
+
     });
 }
 

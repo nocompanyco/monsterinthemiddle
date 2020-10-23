@@ -27,6 +27,10 @@ exports.settings = {};
 exports.plugin = {
   name: plugin_name,
   description: '',
+  trigger_on: {
+    raw_packet: p => { console.log('intercept.js raw_packet', p); },
+  },
+
   submenus: [
     {'start':    () => exports.init() },
     {'stop':     () => exports.stop() },

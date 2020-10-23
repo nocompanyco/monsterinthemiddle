@@ -39,7 +39,7 @@ const scaninterval = 30000; // check for new hosts every N
 // }
 if (process.argv.length < 4) {
   console.error('Example use: ');
-  console.error('  sudo node aprspoof.js',
+  console.error('  sudo node scan.js',
     '--eth <eth>',
     '--gateway <ip>',
     '[--ip-range-start <ip>',
@@ -240,6 +240,7 @@ let scantimer;
 let spooftimer;
 let spoofpause = false; // scanner sets this to be sure we dont respond to our own ping requests
 let scanbusy = false;
+// scan ip range one time. call cb at end
 function scan1(ip_range_start, ip_range_end, callback) {
   if (scanbusy) {
     console.log('scan1 busy, skip');
@@ -251,8 +252,13 @@ function scan1(ip_range_start, ip_range_end, callback) {
     spoofpause = false;
     scanbusy = false;
     if (ret) {
+      // handle plugin trigger on new_hosts, but only when there are new hosts
+      Object.keys(ret).filter(mac => !found_hosts.hasOwnProperty(mac))
+
+      // Assign hosts found in this scan, ti the global found_hosts
       found_hosts = Object.assign({}, found_hosts, ret); // add found hosts
       recent_hosts = ret;
+
     }
     if (typeof callback === 'function') {
       callback(ret);
@@ -397,16 +403,16 @@ const server = require('http').createServer(app);
 server.listen(8083);
 const io = require('socket.io').listen(server);
 app.get('/', function(req, res) {
-  res.sendfile(__dirname + '/ui/arpspoof.html');
+  res.sendfile(__dirname + '/ui/scan.html');
 });
-console.log('serving '+__dirname + '/ui/arpspoof.html');
+console.log('serving '+__dirname + '/ui/scan.html');
 app.use('/ui', express.static(__dirname + '/ui'));
 
 io.sockets.on('connect', (socket) => {
   console.log('client connected');
 
   // this channel is whence server/admin sends commands to client (avoiding interacting with UI)
-  socket.join('arpspoof');
+  socket.join('scan');
 
 
   // give client all information
@@ -466,8 +472,8 @@ io.sockets.on('connect', (socket) => {
       params.ip_range_end,
       params.scaninterval,
       (ret) => {
-        // io.to('arpspoof').emit('recent_hosts', ret);
-        io.to('arpspoof').emit('found_hosts', found_hosts);
+        // io.to('scan').emit('recent_hosts', ret);
+        io.to('scan').emit('found_hosts', found_hosts);
       });
   });
   socket.on('stop_scanloop', scanstop);

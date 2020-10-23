@@ -14,6 +14,7 @@ DEBUG = false;
 /*
  *
  * SCAN
+ * cb called after full scan finishes
  * cb gets {mac:ip,mac2:ip2,...}
  * 
  */
@@ -50,9 +51,9 @@ function scan(ipv4_start, ipv4_end, ipv4_filter, cb) {
         if (i < end)
             setTimeout(() => _recursive_check(i+1), arpwait);
         else if (i == end && typeof cb === 'function') {
-                if (Object.keys(exports.activehosts).length > 0)
+            if (Object.keys(exports.activehosts).length > 0)
                     cb(exports.activehosts)
-                else
+            else
                     cb(null)
         }
     }

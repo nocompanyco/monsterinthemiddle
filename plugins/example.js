@@ -7,14 +7,23 @@ exports.settings = {
   filters: {}
 };
 
+// just to test referenced functions being called in child scopes
+function our_log(...arguments) {
+  console.log(...arguments)
+}
+
+/* test:
+example = require('./plugins/example.js')
+*/
 // plugin settings not exposed to users 
 var name = 'Example';
 exports.plugin = {
   name: name,
   trigger_on: {
-    packets: packet => { console.log('packet', packet) },
+    raw_packet: p => { our_log('example.js raw_packet', p); },
+    parsed_packet: p => { console.log('example.js parsed_packet', p); },
     // Only triggers if it is defined with function as value:
-    //new_hosts: host => {console.log('host',host)},
+    new_hosts: (new_hosts,hosts) => { console.log('example.js new_hosts:',new_hosts,', hosts:',hosts); },
   },
 
 
